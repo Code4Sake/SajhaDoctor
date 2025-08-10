@@ -12,6 +12,7 @@ import PatientRegister from './pages/Auth/PatientRegister.jsx'
 import DoctorRegister from './pages/Auth/DoctorRegister.jsx'
 import PatientDashboard from './pages/Patient/PatientDashboard.jsx'
 import DoctorDashboard from './pages/Doctor/DoctorDashboard.jsx'
+import Patients from './pages/Doctor/Patients.jsx'
 const router = createBrowserRouter(
     createRoutesFromElements(
         <Route path='/' element={<Layout />}>
@@ -24,6 +25,7 @@ const router = createBrowserRouter(
             <Route path='home/DoctorRegister' element={<DoctorRegister />} />
             <Route path='home/PatientDashboard' element={<PatientDashboard />} />
             <Route path='home/DoctorDashboard' element={<DoctorDashboard />} />
+            <Route path='home/Patients' element={<Patients />} />
         </Route>
     )
 )
