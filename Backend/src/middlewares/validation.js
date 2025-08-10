@@ -92,17 +92,7 @@ const validatePatientSignup = [
     .isIn(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'])
     .withMessage('Please provide a valid blood group'),
 
-  body('emergencyContact.name')
-    .optional()
-    .trim()
-    .isLength({ min: 2, max: 100 })
-    .withMessage('Emergency contact name must be between 2 and 100 characters'),
-
-  body('emergencyContact.phoneNumber')
-    .optional()
-    .matches(/^(\+977)?[0-9]{10}$/)
-    .withMessage('Please provide a valid emergency contact phone number'),
-
+  
   body('address.province')
     .optional()
     .isIn([

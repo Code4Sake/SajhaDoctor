@@ -58,12 +58,12 @@ const patientSchema = new mongoose.Schema({
   emergencyContact: {
     name: {
       type: String,
-      required: true
+      required: false
     },
     relationship: String,
     phoneNumber: {
       type: String,
-      required: true,
+      required: false,
       match: [/^(\+977)?[0-9]{10}$/, 'Please provide a valid phone number']
     },
     email: String

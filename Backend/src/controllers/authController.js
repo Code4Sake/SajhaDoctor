@@ -5,6 +5,7 @@ import User from '../models/User.js';
 import { createSendToken } from '../middlewares/auth.js';
 import { sendWelcomeEmail, sendPasswordResetEmail } from '../utils/emailService.js';
 import Doctor from '../models/Doctor.js';
+import Patient from '../models/Patient.js'
 
 // Error handling wrapper
 const catchAsync = (fn) => {
@@ -117,6 +118,7 @@ const signup = catchAsync(async (req, res, next) => {
 
 /// Sign up patient (specific signup for patients)
 const signupPatient = catchAsync(async (req, res, next) => {
+    console.log("🔵 [1] Route hit: /signup/patient");
   const {
     firstName,
     lastName,
@@ -128,6 +130,8 @@ const signupPatient = catchAsync(async (req, res, next) => {
     address,
     emergencyContact
   } = req.body;
+   console.log("🔵 [2] Request body parsed");
+
 
   // Log the incoming request data (remove in production)
   console.log('Signup Patient Request:', { firstName, lastName, email, phoneNumber: phoneNumber ? 'provided' : 'not provided' });
@@ -141,7 +145,9 @@ const signupPatient = catchAsync(async (req, res, next) => {
   }
 
   // Check if user already exists
+  console.log("🔵 [3] Checking for existing user");
   const existingUser = await User.findOne({ email });
+  console.log("🟢 [3.1] User exists check done");
   if (existingUser) {
     return res.status(409).json({
       status: 'fail',
@@ -279,23 +285,48 @@ const signupPatient = catchAsync(async (req, res, next) => {
   }
 });
 // Sign up doctor (specific signup for doctors)
+// Replace your signupDoctor function with this complete version
+
 const signupDoctor = catchAsync(async (req, res, next) => {
+  console.log('=== DOCTOR SIGNUP DEBUG ===');
+  console.log('Full request body:', JSON.stringify(req.body, null, 2));
+
   const {
+    // User fields
     firstName,
     lastName,
     email,
     phoneNumber,
     password,
-    primarySpecialization,
-    licenseNumber,
-    experience,
+    confirmPassword,
+    dateOfBirth,
+    gender,
     address,
-    languagesSpoken = ['English', 'Nepali'], // Default languages
-    bio
+
+    // Doctor specific fields - EXTRACT ALL OF THEM
+    licenseNumber,
+    nmc_registration,
+    primarySpecialization,
+    secondarySpecializations = [],
+    totalExperience,
+    consultationFee, // ← This was missing!
+    languagesSpoken = ['English', 'Nepali'],
+    availability, // ← This was missing!
+    education = [],
+    currentWorkplace = [],
+    bio,
+    specialistIn = [],
+    availableForEmergency = false,
+    emergencyContactNumber,
+
+    // Legacy support for old field names
+    experience
   } = req.body;
 
+  console.log('Extracted availability:', JSON.stringify(availability, null, 2));
+  console.log('Extracted consultationFee:', JSON.stringify(consultationFee, null, 2));
+
   // Validate required fields
-  console.log(primarySpecialization);
   if (!firstName || !lastName || !email || !password || !primarySpecialization || !licenseNumber) {
     return res.status(400).json({
       status: 'fail',
@@ -303,21 +334,48 @@ const signupDoctor = catchAsync(async (req, res, next) => {
     });
   }
 
-  // Check if user already exists
-  const existingUser = await User.findOne({ email });
-  if (existingUser) {
-    return res.status(409).json({
+  // Additional validation for doctor fields
+  if (!nmc_registration) {
+    return res.status(400).json({
       status: 'fail',
-      message: 'User with this email already exists.'
+      message: 'NMC registration number is required.'
     });
   }
 
-  // Check if license number is already taken (check in Doctor collection)
-  const existingLicense = await Doctor.findOne({ licenseNumber });
-  if (existingLicense) {
+  if (totalExperience === undefined && experience === undefined) {
+    return res.status(400).json({
+      status: 'fail',
+      message: 'Total experience is required.'
+    });
+  }
+
+  // Validate password match if confirmPassword is provided
+  if (confirmPassword && password !== confirmPassword) {
+    return res.status(400).json({
+      status: 'fail',
+      message: 'Passwords do not match.'
+    });
+  }
+
+  // Check if user already exists
+  const existingUser = await User.findOne({
+    $or: [{ email }, { phoneNumber: phoneNumber }]
+  });
+  if (existingUser) {
     return res.status(409).json({
       status: 'fail',
-      message: 'Doctor with this license number already exists.'
+      message: 'User with this email or phone number already exists.'
+    });
+  }
+
+  // Check if doctor already exists with license/nmc
+  const existingDoctor = await Doctor.findOne({
+    $or: [{ licenseNumber }, { nmc_registration }]
+  });
+  if (existingDoctor) {
+    return res.status(409).json({
+      status: 'fail',
+      message: 'Doctor with this license number or NMC registration already exists.'
     });
   }
 
@@ -326,40 +384,133 @@ const signupDoctor = catchAsync(async (req, res, next) => {
   let newDoctor = null;
 
   try {
-    // Create new doctor user (WITHOUT doctor-specific fields)
-    newUser = await User.create({
+    // Create new doctor user
+    const userData = {
       firstName,
       lastName,
       email,
-      phoneNumber,
       password,
-      userType: 'doctor',
-      address: address || {
-        province: 'Bagmati',
+      userType: 'doctor'
+    };
+
+    // Add optional user fields if provided
+    if (phoneNumber) userData.phoneNumber = phoneNumber;
+    if (dateOfBirth) userData.dateOfBirth = dateOfBirth;
+    if (gender) userData.gender = gender;
+    if (address) {
+      userData.address = address;
+    } else {
+      // Default address if not provided
+      userData.address = {
+        province: 'Bagmati Province',
         district: 'Kathmandu',
         municipality: 'Kathmandu Metropolitan City'
-      }
-    });
+      };
+    }
 
-    // Create corresponding Doctor profile with minimal required fields
-    newDoctor = await Doctor.create({
+    console.log('Creating user with data:', { ...userData, password: '[HIDDEN]' });
+    newUser = await User.create(userData);
+
+    // Prepare doctor data
+    const doctorData = {
       userId: newUser._id,
-      primarySpecialization,
       licenseNumber,
-      nmc_registration: licenseNumber, // Required field
-      totalExperience: experience || 0,
-      verificationStatus: 'pending'
-    });
+      nmc_registration,
+      primarySpecialization,
+      totalExperience: totalExperience || experience || 0,
+      verificationStatus: 'verified' // You can change this to 'pending' if you want manual verification
+    };
+
+    // Add optional doctor fields
+    if (secondarySpecializations && secondarySpecializations.length > 0) {
+      doctorData.secondarySpecializations = secondarySpecializations;
+    }
+
+    if (education && education.length > 0) {
+      doctorData.education = education;
+    }
+
+    if (currentWorkplace && currentWorkplace.length > 0) {
+      doctorData.currentWorkplace = currentWorkplace;
+    }
+
+    if (languagesSpoken && languagesSpoken.length > 0) {
+      doctorData.languagesSpoken = languagesSpoken;
+    }
+
+    if (bio) {
+      doctorData.bio = bio;
+    }
+
+    if (specialistIn && specialistIn.length > 0) {
+      doctorData.specialistIn = specialistIn;
+    }
+
+    if (availableForEmergency !== undefined) {
+      doctorData.availableForEmergency = availableForEmergency;
+    }
+
+    if (emergencyContactNumber) {
+      doctorData.emergencyContactNumber = emergencyContactNumber;
+    }
+
+    // ✅ HANDLE CONSULTATION FEE PROPERLY
+    if (consultationFee) {
+      doctorData.consultationFee = {
+        video: consultationFee.video || 500,
+        audio: consultationFee.audio || 300,
+        chat: consultationFee.chat || 200,
+        inPerson: consultationFee.inPerson || 800
+      };
+      console.log('Set consultationFee:', doctorData.consultationFee);
+    }
+
+    // ✅ HANDLE AVAILABILITY PROPERLY - THIS WAS THE MAIN ISSUE!
+    if (availability) {
+      console.log('Processing availability data...');
+
+      // Ensure we have the complete availability structure
+      const defaultDay = { available: false, slots: [] };
+
+      doctorData.availability = {
+        monday: availability.monday || defaultDay,
+        tuesday: availability.tuesday || defaultDay,
+        wednesday: availability.wednesday || defaultDay,
+        thursday: availability.thursday || defaultDay,
+        friday: availability.friday || defaultDay,
+        saturday: availability.saturday || defaultDay,
+        sunday: availability.sunday || defaultDay
+      };
+
+      console.log('Final availability to save:', JSON.stringify(doctorData.availability, null, 2));
+    } else {
+      console.log('No availability data provided - using schema defaults');
+    }
+
+    console.log('Creating doctor with data:', JSON.stringify(doctorData, null, 2));
+    newDoctor = await Doctor.create(doctorData);
+
+    console.log('Doctor created successfully. Checking saved availability...');
+
+    // Verify what was actually saved
+    const savedDoctor = await Doctor.findById(newDoctor._id);
+    console.log('Saved doctor availability:', JSON.stringify(savedDoctor.availability, null, 2));
 
     // Generate email verification token
-    const verifyToken = newUser.createEmailVerificationToken();
-    await newUser.save({ validateBeforeSave: false });
+    let verifyToken = null;
+    if (typeof newUser.createEmailVerificationToken === 'function') {
+      verifyToken = newUser.createEmailVerificationToken();
+      await newUser.save({ validateBeforeSave: false });
 
-    // Try to send welcome email
-    try {
-      await sendWelcomeEmail(newUser, verifyToken);
-    } catch (emailError) {
-      console.log('Email sending failed:', emailError.message);
+      // Try to send welcome email
+      try {
+        await sendWelcomeEmail(newUser, verifyToken);
+        console.log('Welcome email sent successfully');
+      } catch (emailError) {
+        console.log('Email sending failed:', emailError.message);
+      }
+    } else {
+      console.log('Warning: createEmailVerificationToken method not found on User model');
     }
 
     res.status(201).json({
@@ -377,17 +528,21 @@ const signupDoctor = catchAsync(async (req, res, next) => {
           isActive: newUser.isActive
         },
         doctor: {
-          id: newDoctor._id,
-          primarySpecialization: newDoctor.primarySpecialization,
-          licenseNumber: newDoctor.licenseNumber,
-          totalExperience: newDoctor.totalExperience,
-          verificationStatus: newDoctor.verificationStatus,
-          consultationFee: newDoctor.consultationFee
+          id: savedDoctor._id,
+          primarySpecialization: savedDoctor.primarySpecialization,
+          licenseNumber: savedDoctor.licenseNumber,
+          nmc_registration: savedDoctor.nmc_registration,
+          totalExperience: savedDoctor.totalExperience,
+          verificationStatus: savedDoctor.verificationStatus,
+          consultationFee: savedDoctor.consultationFee,
+          availability: savedDoctor.availability, // Include this in response to verify
+          languagesSpoken: savedDoctor.languagesSpoken
         }
       }
     });
+
   } catch (err) {
-    console.log('Error creating doctor account:', err);
+    console.error('Error creating doctor account:', err);
 
     // If doctor creation fails but user was created, clean up the user
     if (newUser && newUser._id) {
@@ -399,6 +554,25 @@ const signupDoctor = catchAsync(async (req, res, next) => {
       }
     }
 
+    // Check for specific MongoDB validation errors
+    if (err.name === 'ValidationError') {
+      const errors = Object.values(err.errors).map(error => error.message);
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Validation error',
+        errors: errors
+      });
+    }
+
+    // Check for duplicate key errors
+    if (err.code === 11000) {
+      const field = Object.keys(err.keyPattern || err.keyValue || {})[0];
+      return res.status(409).json({
+        status: 'fail',
+        message: `Doctor with this ${field} already exists.`
+      });
+    }
+
     return res.status(500).json({
       status: 'error',
       message: 'There was an error creating the doctor account. Please try again.',
@@ -406,7 +580,6 @@ const signupDoctor = catchAsync(async (req, res, next) => {
     });
   }
 });
-
 // Login user
 const login = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;

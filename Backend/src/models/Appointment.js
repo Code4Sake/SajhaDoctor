@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 const appointmentSchema = new mongoose.Schema({
   appointmentId: {
     type: String,
+    default: () => new mongoose.Types.ObjectId().toString(),
     unique: true,
     required: true
   },
