@@ -4,10 +4,11 @@ import passport from 'passport';
 import rateLimit from 'express-rate-limit';
 
 // Import controllers and middleware
-import authController from '../controllers/authController.js';
+import * as authController from '../controllers/authController.js';
 import { protect } from '../middlewares/auth.js';
 import {
-  validateSignup,
+  validatePatientSignup,
+  validateDoctorSignup,
   validateLogin,
   validateForgotPassword,
   validateResetPassword,
@@ -15,6 +16,7 @@ import {
 } from '../middlewares/validation.js';
 
 const router = express.Router();
+
 
 // Rate limiting for authentication routes
 const authLimiter = rateLimit({
@@ -38,16 +40,23 @@ const passwordResetLimiter = rateLimit({
 });
 
 // ============================================
-// BASIC AUTHENTICATION ROUTES
+// REGISTRATION ROUTES
 // ============================================
 
-// @route   POST /api/auth/signup
-// @desc    Register a new user
+// @route   POST /api/auth/signup/patient
+// @desc    Register a new patient
 // @access  Public
-router.post('/signup', authLimiter, validateSignup, authController.signup);
+console.log(authController.signupPatient);
+
+router.post('/signup/patient', authLimiter, validatePatientSignup, authController.signupPatient);
+
+// @route   POST /api/auth/signup/doctor
+// @desc    Register a new doctor
+// @access  Public
+router.post('/signup/doctor', authLimiter, validateDoctorSignup, authController.signupDoctor);
 
 // @route   POST /api/auth/login
-// @desc    Login user
+// @desc    Login user (patient or doctor)
 // @access  Public
 router.post('/login', authLimiter, validateLogin, authController.login);
 
@@ -89,7 +98,7 @@ router.patch('/reset-password/:token', authLimiter, validateResetPassword, authC
 // ============================================
 
 // @route   GET /api/auth/me
-// @desc    Get current user profile
+// @desc    Get current user profile with role-specific data
 // @access  Private
 router.get('/me', protect, authController.getMe);
 
@@ -115,7 +124,10 @@ router.get('/google',
 // @desc    Google OAuth callback
 // @access  Public
 router.get('/google/callback',
-  passport.authenticate('google', { session: false }),
+  passport.authenticate('google', {
+    failureRedirect: '/api/auth/google/failure',
+    session: false
+  }),
   authController.googleSuccess
 );
 
@@ -123,6 +135,66 @@ router.get('/google/callback',
 // @desc    Google OAuth failure
 // @access  Public
 router.get('/google/failure', authController.googleFailure);
+
+// ============================================
+// DEBUG ROUTES (Remove in production)
+// ============================================
+
+// @route   GET /api/auth/debug-users
+// @desc    Debug endpoint to check database contents
+// @access  Public (remove in production)
+router.get('/debug-users', async (req, res) => {
+  try {
+    const { default: mongoose } = await import('mongoose');
+    const { default: User } = await import('../models/User.js');
+    const { default: Patient } = await import('../models/Patient.js');
+    const { default: Doctor } = await import('../models/Doctor.js');
+
+    // Get database info
+    const dbName = mongoose.connection.db.databaseName;
+
+    // Count documents in each collection
+    const userCount = await User.countDocuments();
+    const patientCount = await Patient.countDocuments();
+    const doctorCount = await Doctor.countDocuments();
+
+    // Get sample data (limit to 5 for safety)
+    const users = await User.find({}).limit(5).select('-password');
+    const patients = await Patient.find({}).limit(5).populate('userId', 'firstName lastName email');
+    const doctors = await Doctor.find({}).limit(5).populate('userId', 'firstName lastName email');
+
+    // Get collections list
+    const collections = await mongoose.connection.db.listCollections().toArray();
+
+    res.json({
+      status: 'success',
+      database: dbName,
+
+      counts: {
+        users: userCount,
+        patients: patientCount,
+        doctors: doctorCount
+      },
+
+      collections: collections.map(c => ({
+        name: c.name,
+        type: c.type
+      })),
+
+      sampleData: {
+        users: users,
+        patients: patients,
+        doctors: doctors
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
 
 // ============================================
 // HEALTH CHECK ROUTE
@@ -135,8 +207,30 @@ router.get('/health', (req, res) => {
   res.status(200).json({
     status: 'success',
     message: 'Auth service is running',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    supportedRoutes: {
+      registration: [
+        'POST /api/auth/signup/patient',
+        'POST /api/auth/signup/doctor'
+      ],
+      authentication: [
+        'POST /api/auth/login',
+        'POST /api/auth/logout'
+      ],
+      verification: [
+        'GET /api/auth/verify-email/:token',
+        'POST /api/auth/resend-verification'
+      ],
+      passwordReset: [
+        'POST /api/auth/forgot-password',
+        'PATCH /api/auth/reset-password/:token'
+      ],
+      profile: [
+        'GET /api/auth/me',
+        'PATCH /api/auth/update-password'
+      ]
+    }
   });
 });
 
-export default router
+export default router;

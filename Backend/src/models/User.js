@@ -1,6 +1,7 @@
-// models/User.js
+// models/User.js - Base User Model
+
 import mongoose from 'mongoose';
-import bcrypt from "bcryptjs";
+import bcrypt from "bcryptjs"
 import crypto from "crypto"
 
 const userSchema = new mongoose.Schema({
@@ -35,17 +36,17 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: function() {
-      return !this.googleId; // Password not required for Google OAuth users
+      return !this.googleId;
     },
     minlength: [6, 'Password must be at least 6 characters long'],
-    select: false // Don't include password in queries by default
+    select: false
   },
 
-  // Role and Status
-  role: {
+  // User Type and Status
+  userType: {
     type: String,
     enum: ['patient', 'doctor', 'admin'],
-    default: 'patient'
+    required: false
   },
   isActive: {
     type: Boolean,
@@ -53,10 +54,10 @@ const userSchema = new mongoose.Schema({
   },
   isVerified: {
     type: Boolean,
-    default: false
+    default: true
   },
 
-  // Profile Information
+  // Common Profile Information
   profilePicture: {
     type: String,
     default: ''
@@ -68,8 +69,17 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['male', 'female', 'other']
   },
+
+  // Address Information (Nepal-specific)
   address: {
-    province: String,
+    province: {
+      type: String,
+      enum: [
+        'Province 1', 'Madhesh Province', 'Bagmati Province',
+        'Gandaki Province', 'Lumbini Province', 'Karnali Province',
+        'Sudurpashchim Province'
+      ]
+    },
     district: String,
     municipality: String,
     ward: Number,
@@ -79,7 +89,7 @@ const userSchema = new mongoose.Schema({
   // Google OAuth
   googleId: {
     type: String,
-    sparse: true // Allows multiple null values
+    sparse: true
   },
 
   // Verification and Reset Tokens
@@ -101,36 +111,29 @@ const userSchema = new mongoose.Schema({
   }
 });
 
-// Update the updatedAt field before saving
+// Pre-save middleware
 userSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   next();
 });
 
-// Hash password before saving
 userSchema.pre('save', async function(next) {
-  // Only run if password was modified
   if (!this.isModified('password')) return next();
-
-  // Hash password with cost of 12
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
 
-// Update passwordChangedAt when password is modified
 userSchema.pre('save', function(next) {
   if (!this.isModified('password') || this.isNew) return next();
-
-  this.passwordChangedAt = Date.now() - 1000; // Subtract 1 second to ensure token is created after password change
+  this.passwordChangedAt = Date.now() - 1000;
   next();
 });
 
-// Instance method to check if password is correct
+// Instance methods
 userSchema.methods.correctPassword = async function(candidatePassword, userPassword) {
   return await bcrypt.compare(candidatePassword, userPassword);
 };
 
-// Instance method to check if password was changed after JWT was issued
 userSchema.methods.changedPasswordAfter = function(JWTTimestamp) {
   if (this.passwordChangedAt) {
     const changedTimestamp = parseInt(this.passwordChangedAt.getTime() / 1000, 10);
@@ -139,38 +142,31 @@ userSchema.methods.changedPasswordAfter = function(JWTTimestamp) {
   return false;
 };
 
-// Instance method to create email verification token
 userSchema.methods.createEmailVerificationToken = function() {
   const verificationToken = crypto.randomBytes(32).toString('hex');
-
   this.emailVerificationToken = crypto
     .createHash('sha256')
     .update(verificationToken)
     .digest('hex');
-
-  this.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+  this.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000;
   return verificationToken;
 };
 
-// Instance method to create password reset token
 userSchema.methods.createPasswordResetToken = function() {
   const resetToken = crypto.randomBytes(32).toString('hex');
-
   this.passwordResetToken = crypto
     .createHash('sha256')
     .update(resetToken)
     .digest('hex');
-
-  this.passwordResetExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
-
+  this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
   return resetToken;
 };
 
-// Create indexes for better performance
+// Indexes
 userSchema.index({ email: 1 });
 userSchema.index({ phoneNumber: 1 });
 userSchema.index({ googleId: 1 });
+userSchema.index({ userType: 1 });
 
-const User = mongoose.model('User', userSchema);
-
-export default User
+const User = mongoose.model('User', userSchema, 'users');
+export default User;

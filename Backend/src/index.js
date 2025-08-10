@@ -12,13 +12,16 @@ import session from 'express-session';
 import MongoStore from 'connect-mongo';
 import rateLimit from 'express-rate-limit';
 
-
 // Import configurations
 import connectDB from './config/database.js';
 import passport from './config/passport.js';
 
-// Import routes
+// Import all routes
 import authRoutes from './routes/auth.js';
+import doctorRoutes from './routes/doctors.js';
+import patientRoutes from './routes/patients.js';
+import appointmentRoutes from './routes/appointments.js';
+import searchRoutes from './routes/search.js';
 
 // Connect to MongoDB
 connectDB();
@@ -80,7 +83,29 @@ const generalLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Apply rate limiting to all API routes
 app.use('/api/', generalLimiter);
+
+// Special rate limiting for appointment booking (prevent spam)
+const appointmentLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // Limit each IP to 10 appointment bookings per hour
+  message: {
+    status: 'error',
+    message: 'Too many appointment booking attempts, please try again later.'
+  },
+  skip: (req) => !req.path.includes('/book')
+});
+
+// Special rate limiting for search (more lenient)
+const searchLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // Allow more search requests
+  message: {
+    status: 'error',
+    message: 'Too many search requests, please try again later.'
+  }
+});
 
 // Body parser middleware
 app.use(express.json({ limit: '10mb' }));
@@ -111,6 +136,9 @@ app.use(passport.session());
 if (process.env.NODE_ENV === 'development') {
   app.use((req, res, next) => {
     console.log(`${req.method} ${req.path} - ${new Date().toISOString()}`);
+    if (req.body && Object.keys(req.body).length > 0) {
+      console.log('Request Body:', JSON.stringify(req.body, null, 2));
+    }
     next();
   });
 }
@@ -126,18 +154,102 @@ app.get('/', (req, res) => {
     message: 'Telemedicine Nepal API is running!',
     version: '1.0.0',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV
+    environment: process.env.NODE_ENV,
+    features: {
+      authentication: 'JWT + Google OAuth',
+      userTypes: ['patient', 'doctor', 'admin'],
+      services: [
+        'Doctor Search & Filtering',
+        'Appointment Booking',
+        'Real-time Availability',
+        'Patient & Doctor Dashboards',
+        'Medical History Management'
+      ]
+    },
+    endpoints: {
+      authentication: '/api/auth/*',
+      doctors: '/api/doctors/*',
+      patients: '/api/patients/*',
+      appointments: '/api/appointments/*',
+      search: '/api/search/*'
+    }
   });
 });
 
-// API routes
+// API Status route
+app.get('/api', (req, res) => {
+  res.status(200).json({
+    status: 'success',
+    message: 'Telemedicine Nepal API - All Systems Operational',
+    timestamp: new Date().toISOString(),
+    availableRoutes: {
+      auth: {
+        baseUrl: '/api/auth',
+        routes: [
+          'POST /signup/patient - Register as patient',
+          'POST /signup/doctor - Register as doctor',
+          'POST /login - User login',
+          'POST /logout - User logout',
+          'GET /me - Get current user profile',
+          'GET /verify-email/:token - Verify email',
+          'POST /forgot-password - Request password reset',
+          'PATCH /reset-password/:token - Reset password'
+        ]
+      },
+      doctors: {
+        baseUrl: '/api/doctors',
+        routes: [
+          'GET / - Get all doctors (with filters)',
+          'GET /:doctorId - Get doctor details',
+          'PATCH /profile - Update doctor profile (auth required)',
+          'PATCH /toggle-online - Toggle online status (auth required)',
+          'GET /my/dashboard - Get doctor dashboard (auth required)'
+        ]
+      },
+      patients: {
+        baseUrl: '/api/patients',
+        routes: [
+          'GET /profile - Get patient profile (auth required)',
+          'PATCH /profile - Update patient profile (auth required)',
+          'GET /dashboard - Get patient dashboard (auth required)',
+          'POST /medical-history - Add medical history (auth required)'
+        ]
+      },
+      appointments: {
+        baseUrl: '/api/appointments',
+        routes: [
+          'POST /book - Book appointment (patient auth required)',
+          'GET /my-appointments - Get user appointments (auth required)',
+          'GET /:appointmentId - Get appointment details (auth required)',
+          'PATCH /:appointmentId/cancel - Cancel appointment (auth required)',
+          'PATCH /:appointmentId/confirm - Confirm appointment (doctor auth required)',
+          'GET /doctor/:doctorId/availability - Check doctor availability'
+        ]
+      },
+      search: {
+        baseUrl: '/api/search',
+        routes: [
+          'GET /doctors - Advanced doctor search',
+          'GET /suggestions - Get search filter options'
+        ]
+      }
+    }
+  });
+});
+
+// API routes with specific rate limiters
 app.use('/api/auth', authRoutes);
+app.use('/api/doctors', doctorRoutes);
+app.use('/api/patients', patientRoutes);
+app.use('/api/appointments', appointmentLimiter, appointmentRoutes);
+app.use('/api/search', searchLimiter, searchRoutes);
 
 // Handle undefined routes
 app.use('*', (req, res, next) => {
   res.status(404).json({
     status: 'fail',
-    message: `Can't find ${req.originalUrl} on this server!`
+    message: `Can't find ${req.originalUrl} on this server!`,
+    availableEndpoints: 'Visit /api for available routes'
   });
 });
 
@@ -147,28 +259,41 @@ app.use('*', (req, res, next) => {
 
 // Global error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  console.error('Error Details:', {
+    name: err.name,
+    message: err.message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    url: req.originalUrl,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
 
   // Mongoose bad ObjectId
   if (err.name === 'CastError') {
     return res.status(400).json({
       status: 'fail',
-      message: 'Invalid data format'
+      message: 'Invalid ID format',
+      error: err.path ? `Invalid ${err.path}: ${err.value}` : 'Invalid data format'
     });
   }
 
   // Mongoose duplicate key error
   if (err.code === 11000) {
     const field = Object.keys(err.keyValue)[0];
+    const value = err.keyValue[field];
     return res.status(400).json({
       status: 'fail',
-      message: `${field.charAt(0).toUpperCase() + field.slice(1)} already exists`
+      message: `${field.charAt(0).toUpperCase() + field.slice(1)} '${value}' already exists`
     });
   }
 
   // Mongoose validation error
   if (err.name === 'ValidationError') {
-    const errors = Object.values(err.errors).map(val => val.message);
+    const errors = Object.values(err.errors).map(val => ({
+      field: val.path,
+      message: val.message,
+      value: val.value
+    }));
     return res.status(400).json({
       status: 'fail',
       message: 'Validation failed',
@@ -180,7 +305,7 @@ app.use((err, req, res, next) => {
   if (err.name === 'JsonWebTokenError') {
     return res.status(401).json({
       status: 'fail',
-      message: 'Invalid token'
+      message: 'Invalid authentication token. Please log in again.'
     });
   }
 
@@ -188,15 +313,27 @@ app.use((err, req, res, next) => {
   if (err.name === 'TokenExpiredError') {
     return res.status(401).json({
       status: 'fail',
-      message: 'Token expired'
+      message: 'Authentication token has expired. Please log in again.'
+    });
+  }
+
+  // CORS error
+  if (err.message.includes('CORS')) {
+    return res.status(403).json({
+      status: 'fail',
+      message: 'CORS policy violation. Origin not allowed.'
     });
   }
 
   // Default error
   res.status(err.statusCode || 500).json({
     status: 'error',
-    message: err.message || 'Something went wrong!',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    message: err.message || 'Something went wrong on the server!',
+    requestId: req.id,
+    ...(process.env.NODE_ENV === 'development' && {
+      stack: err.stack,
+      error: err
+    })
   });
 });
 
@@ -204,17 +341,28 @@ app.use((err, req, res, next) => {
 // START SERVER
 // ============================================
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8000;
 
 const server = app.listen(PORT, () => {
   console.log(`
 🚀 Telemedicine Nepal API Server Started!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📍 Environment: ${process.env.NODE_ENV}
-🌐 Server running on port ${PORT}
+🌐 Server running on: http://localhost:${PORT}
 📊 Database: Connected to MongoDB
 🔐 Authentication: JWT + Google OAuth enabled
 🛡️  Security: Helmet, CORS, Rate Limiting active
 ⏰ Started at: ${new Date().toISOString()}
+
+📋 Available API Endpoints:
+   • Authentication: http://localhost:${PORT}/api/auth
+   • Doctors: http://localhost:${PORT}/api/doctors
+   • Patients: http://localhost:${PORT}/api/patients
+   • Appointments: http://localhost:${PORT}/api/appointments
+   • Search: http://localhost:${PORT}/api/search
+
+📖 API Documentation: http://localhost:${PORT}/api
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   `);
 });
 
@@ -241,3 +389,5 @@ process.on('SIGTERM', () => {
     console.log('💥 Process terminated!');
   });
 });
+
+export default app;

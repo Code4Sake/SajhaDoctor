@@ -1,6 +1,5 @@
 // middleware/validation.js
 import { body, validationResult } from 'express-validator';
-import User from '../models/User.js';
 
 // Handle validation errors
 const handleValidationErrors = (req, res, next) => {
@@ -16,8 +15,8 @@ const handleValidationErrors = (req, res, next) => {
   next();
 };
 
-// Validation rules for user signup
-const validateSignup = [
+// Common validation rules
+const commonUserValidation = [
   body('firstName')
     .trim()
     .notEmpty()
@@ -41,6 +40,7 @@ const validateSignup = [
     .withMessage('Please provide a valid email')
     .normalizeEmail()
     .custom(async (email) => {
+      const { default: User } = await import('../models/User.js');
       const existingUser = await User.findOne({ email });
       if (existingUser) {
         throw new Error('Email already exists');
@@ -51,6 +51,7 @@ const validateSignup = [
     .matches(/^(\+977)?[0-9]{10}$/)
     .withMessage('Please provide a valid Nepali phone number')
     .custom(async (phoneNumber) => {
+      const { default: User } = await import('../models/User.js');
       const existingUser = await User.findOne({ phoneNumber });
       if (existingUser) {
         throw new Error('Phone number already exists');
@@ -69,12 +70,147 @@ const validateSignup = [
         throw new Error('Password confirmation does not match password');
       }
       return true;
+    })
+];
+
+// Validation rules for patient signup
+const validatePatientSignup = [
+  ...commonUserValidation,
+
+  body('dateOfBirth')
+    .optional()
+    .isISO8601()
+    .withMessage('Please provide a valid date of birth'),
+
+  body('gender')
+    .optional()
+    .isIn(['male', 'female', 'other'])
+    .withMessage('Gender must be male, female, or other'),
+
+  body('bloodGroup')
+    .optional()
+    .isIn(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'])
+    .withMessage('Please provide a valid blood group'),
+
+  
+  body('address.province')
+    .optional()
+    .isIn([
+      'Province 1', 'Madhesh Province', 'Bagmati Province',
+      'Gandaki Province', 'Lumbini Province', 'Karnali Province',
+      'Sudurpashchim Province'
+    ])
+    .withMessage('Please select a valid province'),
+
+  handleValidationErrors
+];
+
+// Validation rules for doctor signup
+const validateDoctorSignup = [
+  ...commonUserValidation,
+
+  body('licenseNumber')
+    .notEmpty()
+    .withMessage('Medical license number is required')
+    .isLength({ min: 5, max: 50 })
+    .withMessage('License number must be between 5 and 50 characters')
+    .custom(async (licenseNumber) => {
+      const { default: Doctor } = await import('../models/Doctor.js');
+      const existingDoctor = await Doctor.findOne({ licenseNumber });
+      if (existingDoctor) {
+        throw new Error('License number already exists');
+      }
     }),
 
-  body('role')
+  body('nmc_registration')
+    .notEmpty()
+    .withMessage('Nepal Medical Council registration number is required')
+    .custom(async (nmc_registration) => {
+      const { default: Doctor } = await import('../models/Doctor.js');
+      const existingDoctor = await Doctor.findOne({ nmc_registration });
+      if (existingDoctor) {
+        throw new Error('NMC registration number already exists');
+      }
+    }),
+
+  body('primarySpecialization')
+    .notEmpty()
+    .withMessage('Primary specialization is required')
+    .isIn([
+      'General Medicine', 'Cardiology', 'Dermatology', 'Endocrinology',
+      'Gastroenterology', 'Neurology', 'Oncology', 'Pediatrics',
+      'Psychiatry', 'Pulmonology', 'Rheumatology', 'Urology',
+      'Gynecology', 'Orthopedics', 'Ophthalmology', 'ENT',
+      'Anesthesiology', 'Radiology', 'Pathology', 'Emergency Medicine',
+      'Family Medicine', 'Internal Medicine', 'Surgery', 'Dentistry'
+    ])
+    .withMessage('Please select a valid specialization'),
+
+  body('totalExperience')
+    .isInt({ min: 0, max: 60 })
+    .withMessage('Total experience must be between 0 and 60 years'),
+
+  body('education')
     .optional()
-    .isIn(['patient', 'doctor'])
-    .withMessage('Role must be either patient or doctor'),
+    .isArray()
+    .withMessage('Education must be an array'),
+
+  body('education.*.degree')
+    .optional()
+    .isIn(['MBBS', 'BDS', 'MD', 'MS', 'DM', 'MCh', 'PhD', 'Diploma', 'Fellowship'])
+    .withMessage('Please provide a valid degree'),
+
+  body('education.*.institution')
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage('Institution name is required'),
+
+  body('education.*.yearOfCompletion')
+    .optional()
+    .isInt({ min: 1950, max: new Date().getFullYear() })
+    .withMessage('Please provide a valid year of completion'),
+
+  body('currentWorkplace')
+    .optional()
+    .isArray()
+    .withMessage('Current workplace must be an array'),
+
+  body('currentWorkplace.*.hospitalName')
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage('Hospital name is required'),
+
+  body('languagesSpoken')
+    .optional()
+    .isArray()
+    .withMessage('Languages spoken must be an array'),
+
+  body('languagesSpoken.*')
+    .optional()
+    .isIn(['Nepali', 'English', 'Hindi', 'Maithili', 'Bhojpuri', 'Newari', 'Urdu'])
+    .withMessage('Please select valid languages'),
+
+  body('consultationFee.video')
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage('Video consultation fee must be a positive number'),
+
+  body('consultationFee.audio')
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage('Audio consultation fee must be a positive number'),
+
+  body('consultationFee.chat')
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage('Chat consultation fee must be a positive number'),
+
+  body('bio')
+    .optional()
+    .isLength({ max: 1000 })
+    .withMessage('Bio cannot exceed 1000 characters'),
 
   handleValidationErrors
 ];
@@ -146,7 +282,8 @@ const validateUpdatePassword = [
 ];
 
 export {
-  validateSignup,
+  validatePatientSignup,
+  validateDoctorSignup,
   validateLogin,
   validateForgotPassword,
   validateResetPassword,
