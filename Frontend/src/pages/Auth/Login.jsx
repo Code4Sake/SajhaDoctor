@@ -12,9 +12,11 @@ import {
   Award,
   Users
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { authAPI, utils, handleApiError } from '../../utils/api';
 
 const SignIn = ({ onLogin, onNavigate }) => {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -28,6 +30,10 @@ const SignIn = ({ onLogin, onNavigate }) => {
     setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+    // Clear general error when user starts typing
+    if (errors.general) {
+      setErrors(prev => ({ ...prev, general: '' }));
     }
   };
 
@@ -48,21 +54,74 @@ const SignIn = ({ onLogin, onNavigate }) => {
     if (!validateForm()) return;
     
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    setErrors({}); // Clear any previous errors
+    
+    try {
+      console.log('Attempting login with:', { email: formData.email, password: '[HIDDEN]' });
+      
+      const result = await authAPI.login({
+        email: formData.email,
+        password: formData.password
+      });
+
+      if (result.success) {
+        console.log('Login successful:', result.data);
+        
+        // Extract user data from response
+        const { user, token } = result.data.data || result.data;
+        
+        // Store user data in localStorage (optional, for persistence)
+        if (user) {
+          localStorage.setItem('currentUser', JSON.stringify(user));
+        }
+
+        // Determine user type and redirect accordingly
+        const userType = user?.userType || user?.role;
+        
+        // Call onLogin callback if provided (for parent component)
+        if (onLogin) {
+          onLogin(userType, user);
+        }
+
+        // Navigate based on user type
+        if (userType === 'doctor') {
+          navigate('/home/DoctorDashboard');
+        } else if (userType === 'patient') {
+          navigate('/home/PatientDashboard');
+        } else {
+          // Fallback - could be admin or unknown role
+          navigate('/home/Dashboard');
+        }
+
+        // Show success message (optional)
+        // You could use a toast notification here instead of alert
+        console.log(`Welcome back, ${user?.firstName || 'User'}!`);
+        
+      } else {
+        // Handle API errors
+        console.error('Login failed:', result.error);
+        handleApiError(result.error, setErrors);
+      }
+    } catch (error) {
+      console.error('Network error during login:', error);
+      setErrors({ 
+        general: 'Network error. Please check your connection and try again.' 
+      });
+    } finally {
       setIsLoading(false);
-      console.log('Sign in submitted:', formData);
-      if (onLogin) onLogin('patient');
-    }, 2000);
+    }
   };
 
   const handleGoogleAuth = () => {
     setIsLoading(true);
-    console.log('Google authentication initiated');
-    setTimeout(() => {
-      setIsLoading(false);
-      if (onLogin) onLogin('patient');
-    }, 1500);
+    
+    // Redirect to your backend Google OAuth endpoint
+    // Your backend should handle the OAuth flow and redirect back to your frontend
+    const googleAuthURL = '/api/auth/google';
+    window.location.href = googleAuthURL;
+    
+    // Note: The loading state will be reset when the page redirects
+    // You might want to show a loading overlay instead
   };
 
   const benefits = [
@@ -197,6 +256,13 @@ const SignIn = ({ onLogin, onNavigate }) => {
             </p>
           </div>
 
+          {/* General Error Display */}
+          {errors.general && (
+            <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-2xl">
+              {errors.general}
+            </div>
+          )}
+
           {/* Premium Google Sign In */}
           <button
             onClick={handleGoogleAuth}
@@ -276,19 +342,17 @@ const SignIn = ({ onLogin, onNavigate }) => {
               </Link>
             </div>
 
-            {/* Submit Button */}
-            <Link to="/home/PatientDashboard">
+            {/* Submit Button - REMOVED the Link wrapper that was overriding the form submission */}
             <button
               type="submit"
               disabled={isLoading}
               className="w-full py-5 px-6 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center space-x-3 cursor-pointer bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white"
             >
-              <span>Sign In</span>
+              <span>{isLoading ? 'Signing In...' : 'Sign In'}</span>
               {isLoading && (
                 <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               )}
             </button>
-            </Link>
 
             {/* Switch to Sign Up */}
             <div className="text-center pt-6">
