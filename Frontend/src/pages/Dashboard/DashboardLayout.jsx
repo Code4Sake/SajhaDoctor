@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import Header from './Header';
-import Sidebar from './Sidebar';
+import Sidebar from './sidebar';
 import MobileNavigation from './MobileNavigation';
 
 const DashboardLayout = ({ 
   children, 
-  activeTab, 
-  onTabChange,
   headerProps = {},
   sidebarProps = {},
   mobileNavProps = {},
@@ -15,18 +14,18 @@ const DashboardLayout = ({
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const location = useLocation();
 
-  // Handle tab change with loading state
-  const handleTabChange = (tabKey) => {
-    if (tabKey === activeTab) return;
-    
+  // Handle route changes with loading state
+  useEffect(() => {
     setIsLoading(true);
-    setTimeout(() => {
-      onTabChange(tabKey);
+    const timer = setTimeout(() => {
       setIsLoading(false);
-      setSidebarOpen(false);
+      setSidebarOpen(false); // Close sidebar on navigation for mobile
     }, 150);
-  };
+
+    return () => clearTimeout(timer);
+  }, [location.pathname]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -40,6 +39,22 @@ const DashboardLayout = ({
       window.removeEventListener('resize', handleResize);
     };
   }, []);
+
+  // Extract current tab from pathname for mobile navigation
+  const getCurrentTab = () => {
+    const pathname = location.pathname;
+    if (pathname.includes('/Dashboard/Patients')) return 'patients';
+    if (pathname.includes('/Dashboard/Appointments')) return 'appointments';
+    if (pathname.includes('/Dashboard/Consultations')) return 'consultations';
+    if (pathname.includes('/Dashboard/Prescriptions')) return 'prescriptions';
+    if (pathname.includes('/Dashboard/Analytics')) return 'analytics';
+    if (pathname.includes('/Dashboard/Revenue')) return 'revenue';
+    if (pathname.includes('/Dashboard/Settings')) return 'settings';
+    if (pathname.includes('/Dashboard')) return 'dashboard';
+    return 'dashboard'; // default
+  };
+
+  const currentTab = getCurrentTab();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50/30">
@@ -81,8 +96,6 @@ const DashboardLayout = ({
         <div className="flex gap-6">
           {/* Sidebar */}
           <Sidebar 
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
             isMobile={isMobile}
             sidebarOpen={sidebarOpen}
             setSidebarOpen={setSidebarOpen}
@@ -102,7 +115,9 @@ const DashboardLayout = ({
             )}
 
             {/* Content passed as children */}
-            {children}
+            <div className="animate-fadeInScale">
+              {children}
+            </div>
           </div>
         </div>
       </div>
@@ -110,8 +125,7 @@ const DashboardLayout = ({
       {/* Mobile Bottom Navigation */}
       {isMobile && showMobileNav && (
         <MobileNavigation 
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
+          currentTab={currentTab}
           {...mobileNavProps}
         />
       )}

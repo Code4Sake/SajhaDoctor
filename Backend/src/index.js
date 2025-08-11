@@ -1,9 +1,8 @@
 // server.js
 // Configure dotenv FIRST before any other imports
-import dotenv from "dotenv"
+import dotenv from "dotenv";
 dotenv.config();
 
-// Now import other modules
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -32,7 +31,7 @@ const app = express();
 // MIDDLEWARE SETUP
 // ============================================
 
-// Security middleware
+// Security middleware (helmet)
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -47,15 +46,16 @@ app.use(helmet({
 }));
 
 // CORS configuration
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:5173',        // Added your Vite frontend origin here
+  process.env.CLIENT_URL
+];
+
 const corsOptions = {
   origin: function (origin, callback) {
-    const allowedOrigins = [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      process.env.CLIENT_URL
-    ];
-
-    // Allow requests with no origin (like mobile apps or curl requests)
+    // Allow requests with no origin like mobile apps or curl requests
     if (!origin) return callback(null, true);
 
     if (allowedOrigins.includes(origin)) {
@@ -74,7 +74,7 @@ app.use(cors(corsOptions));
 // Rate limiting
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: 100,
   message: {
     status: 'error',
     message: 'Too many requests from this IP, please try again later.'
@@ -83,13 +83,11 @@ const generalLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Apply rate limiting to all API routes
 app.use('/api/', generalLimiter);
 
-// Special rate limiting for appointment booking (prevent spam)
 const appointmentLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10, // Limit each IP to 10 appointment bookings per hour
+  max: 10,
   message: {
     status: 'error',
     message: 'Too many appointment booking attempts, please try again later.'
@@ -97,10 +95,9 @@ const appointmentLimiter = rateLimit({
   skip: (req) => !req.path.includes('/book')
 });
 
-// Special rate limiting for search (more lenient)
 const searchLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // Allow more search requests
+  windowMs: 15 * 60 * 1000,
+  max: 200,
   message: {
     status: 'error',
     message: 'Too many search requests, please try again later.'
@@ -119,12 +116,12 @@ app.use(session({
   saveUninitialized: false,
   store: MongoStore.create({
     mongoUrl: process.env.MONGODB_URI,
-    touchAfter: 24 * 3600 // lazy session update
+    touchAfter: 24 * 3600
   }),
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    maxAge: 1000 * 60 * 60 * 24 // 24 hours
+    maxAge: 1000 * 60 * 60 * 24
   }
 }));
 
@@ -237,7 +234,7 @@ app.get('/api', (req, res) => {
   });
 });
 
-// API routes with specific rate limiters
+// API routes with rate limiters
 app.use('/api/auth', authRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/patients', patientRoutes);
@@ -245,7 +242,7 @@ app.use('/api/appointments', appointmentLimiter, appointmentRoutes);
 app.use('/api/search', searchLimiter, searchRoutes);
 
 // Handle undefined routes
-app.use('*', (req, res, next) => {
+app.use('*', (req, res) => {
   res.status(404).json({
     status: 'fail',
     message: `Can't find ${req.originalUrl} on this server!`,
@@ -257,7 +254,6 @@ app.use('*', (req, res, next) => {
 // ERROR HANDLING MIDDLEWARE
 // ============================================
 
-// Global error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error Details:', {
     name: err.name,
@@ -268,7 +264,6 @@ app.use((err, req, res, next) => {
     timestamp: new Date().toISOString()
   });
 
-  // Mongoose bad ObjectId
   if (err.name === 'CastError') {
     return res.status(400).json({
       status: 'fail',
@@ -277,7 +272,6 @@ app.use((err, req, res, next) => {
     });
   }
 
-  // Mongoose duplicate key error
   if (err.code === 11000) {
     const field = Object.keys(err.keyValue)[0];
     const value = err.keyValue[field];
@@ -287,7 +281,6 @@ app.use((err, req, res, next) => {
     });
   }
 
-  // Mongoose validation error
   if (err.name === 'ValidationError') {
     const errors = Object.values(err.errors).map(val => ({
       field: val.path,
@@ -301,7 +294,6 @@ app.use((err, req, res, next) => {
     });
   }
 
-  // JWT error
   if (err.name === 'JsonWebTokenError') {
     return res.status(401).json({
       status: 'fail',
@@ -309,7 +301,6 @@ app.use((err, req, res, next) => {
     });
   }
 
-  // JWT expired error
   if (err.name === 'TokenExpiredError') {
     return res.status(401).json({
       status: 'fail',
@@ -317,7 +308,6 @@ app.use((err, req, res, next) => {
     });
   }
 
-  // CORS error
   if (err.message.includes('CORS')) {
     return res.status(403).json({
       status: 'fail',
@@ -325,7 +315,6 @@ app.use((err, req, res, next) => {
     });
   }
 
-  // Default error
   res.status(err.statusCode || 500).json({
     status: 'error',
     message: err.message || 'Something went wrong on the server!',
@@ -366,7 +355,7 @@ const server = app.listen(PORT, () => {
   `);
 });
 
-// Handle unhandled promise rejections
+// Unhandled promise rejections
 process.on('unhandledRejection', (err, promise) => {
   console.log('UNHANDLED REJECTION! 💥 Shutting down...');
   console.log(err.name, err.message);
@@ -375,7 +364,7 @@ process.on('unhandledRejection', (err, promise) => {
   });
 });
 
-// Handle uncaught exceptions
+// Uncaught exceptions
 process.on('uncaughtException', (err) => {
   console.log('UNCAUGHT EXCEPTION! 💥 Shutting down...');
   console.log(err.name, err.message);

@@ -12,27 +12,60 @@ import {
   Shield,
   Award,
   Users,
-  CheckCircle
+  CheckCircle,
+  Calendar,
+  UserCheck
 } from 'lucide-react';
 import { Link } from 'react-router';
+import { authAPI, handleApiError, utils } from '../../utils/api';
+
 const PatientRegister = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
     email: '',
     password: '',
     confirmPassword: '',
-    fullName: '',
-    phone: '',
-    location: ''
+    phoneNumber: '',
+    dateOfBirth: '',
+    gender: '',
+    address: {
+      province: '',
+      district: '',
+      municipality: ''
+    },
+    emergencyContact: {
+      name: '',
+      relationship: '',
+      phoneNumber: '',
+      email: ''
+    }
   });
   const [errors, setErrors] = useState({});
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Handle nested objects for address and emergencyContact
+    if (name.includes('.')) {
+      const [parent, child] = name.split('.');
+      setFormData(prev => ({
+        ...prev,
+        [parent]: {
+          ...prev[parent],
+          [child]: value
+        }
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+    
+    // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
@@ -41,20 +74,28 @@ const PatientRegister = () => {
   const validateForm = () => {
     const newErrors = {};
     
+    // Basic validation
+    if (!formData.firstName) newErrors.firstName = 'First name is required';
+    if (!formData.lastName) newErrors.lastName = 'Last name is required';
     if (!formData.email) newErrors.email = 'Email is required';
     else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email format';
     
     if (!formData.password) newErrors.password = 'Password is required';
-    else if (formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters';
+    else if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+    else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
+      newErrors.password = 'Password must contain at least one lowercase, uppercase, and number';
+    }
     
     if (!formData.confirmPassword) newErrors.confirmPassword = 'Please confirm your password';
     else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
     }
     
-    if (!formData.fullName) newErrors.fullName = 'Full name is required';
-    if (!formData.phone) newErrors.phone = 'Phone number is required';
-    if (!formData.location) newErrors.location = 'Location is required';
+    if (!formData.phoneNumber) newErrors.phoneNumber = 'Phone number is required';
+    else if (!/^(\+977)?[0-9]{10}$/.test(formData.phoneNumber)) {
+      newErrors.phoneNumber = 'Please provide a valid Nepali phone number';
+    }
+    
     if (!termsAccepted) newErrors.terms = 'You must accept the terms and conditions';
     
     setErrors(newErrors);
@@ -66,22 +107,42 @@ const PatientRegister = () => {
     if (!validateForm()) return;
     
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    setErrors({}); // Clear previous errors
+    
+    try {
+      // Format phone number
+      const formattedData = {
+        ...formData,
+        phoneNumber: utils.formatNepalPhoneNumber(formData.phoneNumber)
+      };
+
+      const result = await authAPI.registerPatient(formattedData);
+
+      if (result.success) {
+        setRegistrationSuccess(true);
+        console.log('Registration successful:', result.data);
+      } else {
+        handleApiError(result.error, setErrors);
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      setErrors({ general: 'Network error. Please try again.' });
+    } finally {
       setIsLoading(false);
-      console.log('Patient registration:', formData);
-      // Handle successful signup here
-    }, 2000);
+    }
   };
 
   const handleGoogleAuth = () => {
     setIsLoading(true);
-    console.log('Google patient registration initiated');
-    setTimeout(() => {
-      setIsLoading(false);
-      // Handle Google signup here
-    }, 1500);
+    // Redirect to Google OAuth endpoint
+    window.location.href = '/api/auth/google';
   };
+
+  const nepaliProvinces = [
+    'Province 1', 'Madhesh Province', 'Bagmati Province',
+    'Gandaki Province', 'Lumbini Province', 'Karnali Province',
+    'Sudurpashchim Province'
+  ];
 
   const nepaliDistricts = [
     'Achham', 'Arghakhanchi', 'Baglung', 'Baitadi', 'Bajhang', 'Bajura', 'Banke', 
@@ -118,6 +179,28 @@ const PatientRegister = () => {
       gradient: "from-purple-500 to-pink-500"
     }
   ];
+
+  if (registrationSuccess) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 text-center">
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle className="w-10 h-10 text-green-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Registration Successful!</h1>
+          <p className="text-gray-600 mb-6">
+            Please check your email to verify your account before signing in.
+          </p>
+          <Link
+            to="/home/Login"
+            className="w-full py-3 px-6 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-colors inline-block"
+          >
+            Go to Sign In
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -225,6 +308,13 @@ const PatientRegister = () => {
             </p>
           </div>
 
+          {/* General Error Message */}
+          {errors.general && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl">
+              <p className="text-red-600 font-medium">{errors.general}</p>
+            </div>
+          )}
+
           {/* Google Sign Up */}
           <button
             onClick={handleGoogleAuth}
@@ -249,66 +339,44 @@ const PatientRegister = () => {
           </div>
 
           {/* Form */}
-          <div className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             
-            {/* Full Name */}
-            <div>
-              <label className="block text-sm font-bold text-gray-800 mb-3">Full Name *</label>
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                <input
-                  type="text"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleInputChange}
-                  className={`w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white ${
-                    errors.fullName ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-emerald-500 hover:border-gray-300'
-                  }`}
-                  placeholder="Enter your full name"
-                />
-              </div>
-              {errors.fullName && <p className="text-red-500 text-sm mt-2 font-medium">{errors.fullName}</p>}
-            </div>
-
-            {/* Phone and Location */}
+            {/* Name Fields */}
             <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-bold text-gray-800 mb-3">Phone Number *</label>
+                <label className="block text-sm font-bold text-gray-800 mb-3">First Name *</label>
                 <div className="relative">
-                  <Phone className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
+                  <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
                   <input
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
+                    type="text"
+                    name="firstName"
+                    value={formData.firstName}
                     onChange={handleInputChange}
                     className={`w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white ${
-                      errors.phone ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-emerald-500 hover:border-gray-300'
+                      errors.firstName ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-emerald-500 hover:border-gray-300'
                     }`}
-                    placeholder="+977 98XXXXXXXX"
+                    placeholder="Enter your first name"
                   />
                 </div>
-                {errors.phone && <p className="text-red-500 text-sm mt-2 font-medium">{errors.phone}</p>}
+                {errors.firstName && <p className="text-red-500 text-sm mt-2 font-medium">{errors.firstName}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-800 mb-3">Location *</label>
+                <label className="block text-sm font-bold text-gray-800 mb-3">Last Name *</label>
                 <div className="relative">
-                  <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                  <select
-                    name="location"
-                    value={formData.location}
+                  <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
+                  <input
+                    type="text"
+                    name="lastName"
+                    value={formData.lastName}
                     onChange={handleInputChange}
-                    className={`w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 appearance-none bg-gray-50 focus:bg-white hover:bg-white cursor-pointer ${
-                      errors.location ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-emerald-500 hover:border-gray-300'
+                    className={`w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white ${
+                      errors.lastName ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-emerald-500 hover:border-gray-300'
                     }`}
-                  >
-                    <option value="">Select Your District</option>
-                    {nepaliDistricts.map(district => (
-                      <option key={district} value={district}>{district}</option>
-                    ))}
-                  </select>
+                    placeholder="Enter your last name"
+                  />
                 </div>
-                {errors.location && <p className="text-red-500 text-sm mt-2 font-medium">{errors.location}</p>}
+                {errors.lastName && <p className="text-red-500 text-sm mt-2 font-medium">{errors.lastName}</p>}
               </div>
             </div>
 
@@ -331,6 +399,193 @@ const PatientRegister = () => {
               {errors.email && <p className="text-red-500 text-sm mt-2 font-medium">{errors.email}</p>}
             </div>
 
+            {/* Phone Number */}
+            <div>
+              <label className="block text-sm font-bold text-gray-800 mb-3">Phone Number *</label>
+              <div className="relative">
+                <Phone className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
+                <input
+                  type="tel"
+                  name="phoneNumber"
+                  value={formData.phoneNumber}
+                  onChange={handleInputChange}
+                  className={`w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white ${
+                    errors.phoneNumber ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-emerald-500 hover:border-gray-300'
+                  }`}
+                  placeholder="+977 98XXXXXXXX"
+                />
+              </div>
+              {errors.phoneNumber && <p className="text-red-500 text-sm mt-2 font-medium">{errors.phoneNumber}</p>}
+            </div>
+
+            {/* Date of Birth and Gender */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-bold text-gray-800 mb-3">Date of Birth</label>
+                <div className="relative">
+                  <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
+                  <input
+                    type="date"
+                    name="dateOfBirth"
+                    value={formData.dateOfBirth}
+                    onChange={handleInputChange}
+                    className="w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white border-gray-200 focus:border-emerald-500 hover:border-gray-300"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-800 mb-3">Gender</label>
+                <div className="relative">
+                  <UserCheck className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
+                  <select
+                    name="gender"
+                    value={formData.gender}
+                    onChange={handleInputChange}
+                    className="w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 appearance-none bg-gray-50 focus:bg-white hover:bg-white cursor-pointer border-gray-200 focus:border-emerald-500 hover:border-gray-300"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Address Fields */}
+            <div className="space-y-6">
+              <h3 className="text-lg font-bold text-gray-800">Address Information</h3>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-bold text-gray-800 mb-3">Province</label>
+                  <div className="relative">
+                    <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
+                    <select
+                      name="address.province"
+                      value={formData.address.province}
+                      onChange={handleInputChange}
+                      className="w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 appearance-none bg-gray-50 focus:bg-white hover:bg-white cursor-pointer border-gray-200 focus:border-emerald-500 hover:border-gray-300"
+                    >
+                      <option value="">Select Province</option>
+                      {nepaliProvinces.map(province => (
+                        <option key={province} value={province}>{province}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-800 mb-3">District</label>
+                  <div className="relative">
+                    <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
+                    <select
+                      name="address.district"
+                      value={formData.address.district}
+                      onChange={handleInputChange}
+                      className="w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 appearance-none bg-gray-50 focus:bg-white hover:bg-white cursor-pointer border-gray-200 focus:border-emerald-500 hover:border-gray-300"
+                    >
+                      <option value="">Select District</option>
+                      {nepaliDistricts.map(district => (
+                        <option key={district} value={district}>{district}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-800 mb-3">Municipality/VDC</label>
+                <div className="relative">
+                  <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
+                  <input
+                    type="text"
+                    name="address.municipality"
+                    value={formData.address.municipality}
+                    onChange={handleInputChange}
+                    className="w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white border-gray-200 focus:border-emerald-500 hover:border-gray-300"
+                    placeholder="Enter municipality or VDC"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Emergency Contact */}
+            <div className="space-y-6">
+              <h3 className="text-lg font-bold text-gray-800">Emergency Contact</h3>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-bold text-gray-800 mb-3">Contact Name</label>
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
+                    <input
+                      type="text"
+                      name="emergencyContact.name"
+                      value={formData.emergencyContact.name}
+                      onChange={handleInputChange}
+                      className="w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white border-gray-200 focus:border-emerald-500 hover:border-gray-300"
+                      placeholder="Emergency contact name"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-800 mb-3">Relationship</label>
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
+                    <select
+                      name="emergencyContact.relationship"
+                      value={formData.emergencyContact.relationship}
+                      onChange={handleInputChange}
+                      className="w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 appearance-none bg-gray-50 focus:bg-white hover:bg-white cursor-pointer border-gray-200 focus:border-emerald-500 hover:border-gray-300"
+                    >
+                      <option value="">Select Relationship</option>
+                      <option value="spouse">Spouse</option>
+                      <option value="parent">Parent</option>
+                      <option value="child">Child</option>
+                      <option value="sibling">Sibling</option>
+                      <option value="friend">Friend</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-bold text-gray-800 mb-3">Emergency Contact Phone</label>
+                  <div className="relative">
+                    <Phone className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
+                    <input
+                      type="tel"
+                      name="emergencyContact.phoneNumber"
+                      value={formData.emergencyContact.phoneNumber}
+                      onChange={handleInputChange}
+                      className="w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white border-gray-200 focus:border-emerald-500 hover:border-gray-300"
+                      placeholder="+977 98XXXXXXXX"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-800 mb-3">Emergency Contact Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
+                    <input
+                      type="email"
+                      name="emergencyContact.email"
+                      value={formData.emergencyContact.email}
+                      onChange={handleInputChange}
+                      className="w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white border-gray-200 focus:border-emerald-500 hover:border-gray-300"
+                      placeholder="emergency@email.com"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Password */}
             <div>
               <label className="block text-sm font-bold text-gray-800 mb-3">Password *</label>
@@ -344,7 +599,7 @@ const PatientRegister = () => {
                   className={`w-full pl-14 pr-16 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white ${
                     errors.password ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-emerald-500 hover:border-gray-300'
                   }`}
-                  placeholder="Enter your password (min 8 characters)"
+                  placeholder="Enter your password (min 6 characters)"
                 />
                 <button
                   type="button"
@@ -409,7 +664,7 @@ const PatientRegister = () => {
 
             {/* Submit Button */}
             <button
-              onClick={handleSubmit}
+              type="submit"
               disabled={isLoading}
               className="w-full py-5 px-6 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white"
             >
@@ -424,23 +679,23 @@ const PatientRegister = () => {
               <p className="text-gray-600 font-medium">
                 Are you a healthcare provider?{' '}
                 <Link
-  to="/home/DoctorRegister"
-  className="text-emerald-600 underline hover:text-emerald-700 hover:no-underline"
->
-  Register as Doctor
-</Link>
-</p>
-<p className="text-gray-600 font-medium">
-  Already have an account?{' '}
-  <Link
-    to="/home/Login"
-    className="text-emerald-600 hover:text-emerald-700 font-bold underline transition-colors duration-300"
-  >
-    Sign In
-  </Link>
-</p>
+                  to="/home/DoctorRegister"
+                  className="text-emerald-600 underline hover:text-emerald-700 hover:no-underline"
+                >
+                  Register as Doctor
+                </Link>
+              </p>
+              <p className="text-gray-600 font-medium">
+                Already have an account?{' '}
+                <Link
+                  to="/home/Login"
+                  className="text-emerald-600 hover:text-emerald-700 font-bold underline transition-colors duration-300"
+                >
+                  Sign In
+                </Link>
+              </p>
             </div>
-          </div>
+          </form>
 
         </div>
       </div>

@@ -41,6 +41,11 @@ import {
 } from 'lucide-react';
 
 import DashboardLayout from './DashboardLayout';
+// Import the new components
+import Patients from './Patients';
+import Appointments from './Appointments';
+import Consultations from './Consultations';
+import Analytics from './Analytics';
 
 // Enhanced Card Component
 const DashboardCard = ({ title, children, className = "", delay = 0, action }) => (
@@ -596,35 +601,13 @@ const MainDashboard = () => {
           </>
         );
       case 'patients':
-        return (
-          <DashboardCard title="Patient Management" delay={100}>
-            <div className="text-center py-12">
-              <Users className="w-16 h-16 text-blue-500 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Patient Management</h3>
-              <p className="text-gray-600">Manage your patient records and information here.</p>
-            </div>
-          </DashboardCard>
-        );
+        return <Patients />;
       case 'appointments':
-        return (
-          <DashboardCard title="Appointments" delay={100}>
-            <div className="text-center py-12">
-              <Calendar className="w-16 h-16 text-green-500 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Appointment Scheduler</h3>
-              <p className="text-gray-600">View and manage your appointment schedule.</p>
-            </div>
-          </DashboardCard>
-        );
+        return <Appointments />;
       case 'consultations':
-        return (
-          <DashboardCard title="Consultations" delay={100}>
-            <div className="text-center py-12">
-              <MessageCircle className="w-16 h-16 text-purple-500 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Consultation Hub</h3>
-              <p className="text-gray-600">Conduct video calls and chat consultations.</p>
-            </div>
-          </DashboardCard>
-        );
+        return <Consultations />;
+      case 'analytics':
+        return <Analytics />;
       case 'prescriptions':
         return (
           <DashboardCard title="Prescriptions" delay={100}>
@@ -632,16 +615,6 @@ const MainDashboard = () => {
               <FileText className="w-16 h-16 text-indigo-500 mx-auto mb-4" />
               <h3 className="text-xl font-bold text-gray-900 mb-2">Prescription Manager</h3>
               <p className="text-gray-600">Create and manage patient prescriptions.</p>
-            </div>
-          </DashboardCard>
-        );
-      case 'analytics':
-        return (
-          <DashboardCard title="Analytics Dashboard" delay={100}>
-            <div className="text-center py-12">
-              <BarChart3 className="w-16 h-16 text-orange-500 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Performance Analytics</h3>
-              <p className="text-gray-600">View detailed analytics and insights.</p>
             </div>
           </DashboardCard>
         );

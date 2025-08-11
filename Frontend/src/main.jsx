@@ -12,7 +12,12 @@ import PatientRegister from './pages/Auth/PatientRegister.jsx'
 import DoctorRegister from './pages/Auth/DoctorRegister.jsx'
 import PatientDashboard from './pages/Patient/PatientDashboard.jsx'
 import DoctorDashboard from './pages/Doctor/DoctorDashboard.jsx'
+import MainDashboard from './pages/Dashboard/MainDashboard.jsx'
+import Consultations from './pages/Dashboard/Consultations.jsx'
 import Patients from './pages/Doctor/Patients.jsx'
+import Appointments from './pages/Dashboard/Appointments.jsx'
+import Analytics from './pages/Dashboard/Analytics.jsx'
+
 const router = createBrowserRouter(
     createRoutesFromElements(
         <Route path='/' element={<Layout />}>
@@ -24,8 +29,12 @@ const router = createBrowserRouter(
             <Route path='home/PatientRegister' element={<PatientRegister />} />
             <Route path='home/DoctorRegister' element={<DoctorRegister />} />
             <Route path='home/PatientDashboard' element={<PatientDashboard />} />
-            <Route path='home/DoctorDashboard' element={<DoctorDashboard />} />
-            <Route path='home/Patients' element={<Patients />} />
+            <Route path='home/DoctorDashboard' element={<DoctorDashboard />} /> 
+            <Route path='home/Dashboard' element={<MainDashboard />} />
+            <Route path='home/Dashboard/Consultations' element={<Consultations />} />
+            <Route path='home/Dashboard/Patients' element={<Patients />} />
+            <Route path='home/Dashboard/Appointments' element={<Appointments />} />
+            <Route path='home/Dashboard/Analytics' element={<Analytics />} />
         </Route>
     )
 )
