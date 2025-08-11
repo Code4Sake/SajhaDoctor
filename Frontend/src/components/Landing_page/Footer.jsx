@@ -550,15 +550,7 @@ const Footer = () => {
         </div>
       </div>
 
-      {/* Back to Top Button */}
-      {showBackToTop && (
-        <button
-          onClick={scrollToTop}
-          className="fixed bottom-8 right-8 w-14 h-14 bg-gradient-to-r from-teal-500 to-blue-600 text-white rounded-full flex items-center justify-center shadow-2xl hover:shadow-teal-500/25 transition-all duration-300 hover:scale-110 z-50 cursor-pointer"
-        >
-          <ChevronUp className="w-6 h-6" />
-        </button>
-      )}
+     
     </footer>
   );
 };
