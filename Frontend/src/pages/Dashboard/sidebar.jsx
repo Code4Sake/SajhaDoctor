@@ -6,23 +6,21 @@ import {
   Calendar, 
   MessageCircle, 
   FileText, 
-  BarChart3, 
+  BarChart3,
   DollarSign, 
   Settings 
 } from 'lucide-react';
 
 const Sidebar = ({ 
   isMobile, 
-  sidebarOpen, 
+  sidebarOpen,  
   setSidebarOpen,
   navigationItems = [
     { icon: Home, label: "Dashboard", key: "dashboard", path: "/home/Dashboard" },
     { icon: Users, label: "Patients", key: "patients", badge: "5", path: "/home/Dashboard/Patients" },
     { icon: Calendar, label: "Appointments", key: "appointments", badge: "12", path: "/home/Dashboard/Appointments" },
     { icon: MessageCircle, label: "Consultations", key: "consultations", path: "/home/Dashboard/Consultations" },
-    { icon: FileText, label: "Prescriptions", key: "prescriptions", path: "/home/Dashboard/Prescriptions" },
     { icon: BarChart3, label: "Analytics", key: "analytics", path: "/home/Dashboard/Analytics" },
-    { icon: DollarSign, label: "Revenue", key: "revenue", path: "/home/Dashboard/Revenue" },
     { icon: Settings, label: "Settings", key: "settings", path: "/home/Dashboard/Settings" }
   ]
 }) => {
