@@ -1,89 +1,76 @@
-// middleware/auth.js
-import dotenv from 'dotenv';
-// Ensure environment variables are loaded
-dotenv.config();
-
+// middlewares/auth.js - Authentication Middleware
 import jwt from 'jsonwebtoken';
-import { promisify } from 'util';
 import User from '../models/User.js';
 
-// Generate JWT token
-const signToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN,
-  });
-};
-
-// Create and send token
-const createSendToken = (user, statusCode, res) => {
-  const token = signToken(user._id);
-
-  const cookieOptions = {
-    expires: new Date(
-      Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
-    ),
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict'
-  };
-
-  res.cookie('jwt', token, cookieOptions);
-
-  // Remove password from output
-  user.password = undefined;
-
-  res.status(statusCode).json({
-    status: 'success',
-    token,
-    data: {
-      user
-    }
-  });
-};
-
-// Protect middleware - verify if user is authenticated
-const protect = async (req, res, next) => {
+// Protect routes - verify JWT token
+export const protect = async (req, res, next) => {
   try {
-    // 1) Getting token and check if it's there
     let token;
+
+    // Get token from header or cookies
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
-    } else if (req.cookies.jwt) {
+    } else if (req.cookies && req.cookies.jwt) {
       token = req.cookies.jwt;
     }
 
     if (!token) {
       return res.status(401).json({
         status: 'fail',
-        message: 'You are not logged in! Please log in to get access.'
+        message: 'You are not logged in! Please log in to get access.',
+        errors: ['No authentication token provided']
       });
     }
 
-    // 2) Verification of token
-    const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+    // Verify token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+      if (error.name === 'TokenExpiredError') {
+        return res.status(401).json({
+          status: 'fail',
+          message: 'Your token has expired! Please log in again.',
+          errors: ['Token expired']
+        });
+      }
+      
+      if (error.name === 'JsonWebTokenError') {
+        return res.status(401).json({
+          status: 'fail',
+          message: 'Invalid token! Please log in again.',
+          errors: ['Invalid token']
+        });
+      }
 
-    // 3) Check if user still exists
+      throw error;
+    }
+
+    // Check if user still exists
     const currentUser = await User.findById(decoded.id);
     if (!currentUser) {
       return res.status(401).json({
         status: 'fail',
-        message: 'The user belonging to this token no longer exists.'
+        message: 'The user belonging to this token does no longer exist.',
+        errors: ['User not found']
       });
     }
 
-    // 4) Check if user is active
+    // Check if user is active
     if (!currentUser.isActive) {
       return res.status(401).json({
         status: 'fail',
-        message: 'Your account has been deactivated. Please contact support.'
+        message: 'Your account has been deactivated. Please contact support.',
+        errors: ['Account deactivated']
       });
     }
 
-    // 5) Check if user changed password after the token was issued (optional)
-    if (currentUser.changedPasswordAfter && currentUser.changedPasswordAfter(decoded.iat)) {
+    // Check if user changed password after the token was issued
+    if (currentUser.changedPasswordAfter(decoded.iat)) {
       return res.status(401).json({
         status: 'fail',
-        message: 'User recently changed password! Please log in again.'
+        message: 'User recently changed password! Please log in again.',
+        errors: ['Password changed']
       });
     }
 
@@ -91,66 +78,108 @@ const protect = async (req, res, next) => {
     req.user = currentUser;
     next();
   } catch (error) {
-    let message = 'Invalid token. Please log in again!';
-
-    if (error.name === 'TokenExpiredError') {
-      message = 'Your token has expired! Please log in again.';
-    } else if (error.name === 'JsonWebTokenError') {
-      message = 'Invalid token. Please log in again!';
-    }
-
-    return res.status(401).json({
-      status: 'fail',
-      message
+    console.error('Auth middleware error:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Authentication error',
+      error: error.message
     });
   }
 };
 
 // Restrict to specific roles
-
-// Check if user is logged in (for rendered pages)
-const isLoggedIn = async (req, res, next) => {
-  if (req.cookies.jwt) {
-    try {
-      // 1) Verify token
-      const decoded = await promisify(jwt.verify)(req.cookies.jwt, process.env.JWT_SECRET);
-
-      // 2) Check if user still exists
-      const currentUser = await User.findById(decoded.id);
-      if (!currentUser) {
-        return next();
-      }
-
-      // 3) Check if user changed password after the token was issued (optional)
-      if (currentUser.changedPasswordAfter && currentUser.changedPasswordAfter(decoded.iat)) {
-        return next();
-      }
-
-      // There is a logged in user
-      req.user = currentUser;
-      return next();
-    } catch (err) {
-      return next();
+export const restrictTo = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.userType)) {
+      return res.status(403).json({
+        status: 'fail',
+        message: 'You do not have permission to perform this action.',
+        errors: [`Access denied. Required roles: ${roles.join(', ')}`]
+      });
     }
-  }
-  next();
+    next();
+  };
 };
 
-// Require verified email middleware
-const requireVerifiedEmail = (req, res, next) => {
+// Check if user is verified (for actions requiring verified users)
+export const requireVerified = (req, res, next) => {
   if (!req.user.isVerified) {
     return res.status(403).json({
       status: 'fail',
-      message: 'Please verify your email address to access this feature.'
+      message: 'Please verify your email address to access this feature.',
+      errors: ['Email verification required']
     });
   }
   next();
 };
 
-export {
-  signToken,
-  createSendToken,
-  protect,
-  isLoggedIn,
-  requireVerifiedEmail
+// Optional auth - doesn't fail if no token provided
+export const optionalAuth = async (req, res, next) => {
+  try {
+    let token;
+
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
+    } else if (req.cookies && req.cookies.jwt) {
+      token = req.cookies.jwt;
+    }
+
+    if (!token) {
+      return next();
+    }
+
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Check if user still exists
+    const currentUser = await User.findById(decoded.id);
+    if (!currentUser) {
+      return next();
+    }
+
+    // Check if user changed password after the token was issued
+    if (currentUser.changedPasswordAfter(decoded.iat)) {
+      return next();
+    }
+
+    // Add user to request if valid
+    req.user = currentUser;
+    next();
+  } catch (error) {
+    // If there's an error with optional auth, just continue without user
+    next();
+  }
+};
+
+// Check if user owns the resource (for patient/doctor specific resources)
+export const checkResourceOwnership = (resourceUserIdField = 'userId') => {
+  return (req, res, next) => {
+    // For routes where the resource belongs to the authenticated user
+    const resourceUserId = req.params[resourceUserIdField] || req.body[resourceUserIdField];
+    
+    if (resourceUserId && resourceUserId !== req.user.id.toString()) {
+      return res.status(403).json({
+        status: 'fail',
+        message: 'You can only access your own resources.',
+        errors: ['Access denied to resource']
+      });
+    }
+    
+    next();
+  };
+};
+
+// Rate limiting helper
+export const createRateLimit = (windowMs, max, message) => {
+  return {
+    windowMs,
+    max,
+    message: {
+      status: 'error',
+      message: message || 'Too many requests, please try again later.',
+      errors: ['Rate limit exceeded']
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+  };
 };
