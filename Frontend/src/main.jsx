@@ -29,7 +29,7 @@ const router = createBrowserRouter(
             <Route path='home/PatientRegister' element={<PatientRegister />} />
             <Route path='home/DoctorRegister' element={<DoctorRegister />} />
             <Route path='home/PatientDashboard' element={<PatientDashboard />} />
-            <Route path='home/DoctorDashboard' element={<DoctorDashboard />} /> 
+            <Route path='home/DoctorDashboard' element={<MainDashboard />} />
             <Route path='home/Dashboard' element={<MainDashboard />} />
             <Route path='home/Dashboard/Consultations' element={<Consultations />} />
             <Route path='home/Dashboard/Patients' element={<Patients />} />

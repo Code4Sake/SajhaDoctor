@@ -67,12 +67,12 @@ router.post('/book', protect, async (req, res) => {
     // Check appointment time (must be at least 30 minutes in future)
     const appointmentTime = new Date(scheduledDateTime);
     const now = new Date();
-    if (appointmentTime <= new Date(now.getTime() + 30 * 60000)) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Appointment must be scheduled at least 30 minutes in advance'
-      });
-    }
+    // if (appointmentTime <= new Date(now.getTime() + 30 * 60000)) {
+    //   return res.status(400).json({
+    //     status: 'error',
+    //     message: 'Appointment must be scheduled at least 30 minutes in advance'
+    //   });
+    // }
 
     // Check doctor availability on that day
     const dayOfWeek = appointmentTime.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
