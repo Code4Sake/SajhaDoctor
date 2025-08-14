@@ -493,7 +493,7 @@ const signupDoctor = catchAsync(async (req, res, next) => {
     console.log('Creating doctor with data:', JSON.stringify(doctorData, null, 2));
     newDoctor = await Doctor.create(doctorData);
     console.log("this is new one",newDoctor);
-    
+
 
     console.log('Doctor created successfully. Checking saved availability...');
 

@@ -4,8 +4,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import User from '../models/User.js';
 import Patient from '../models/Patient.js';
-// Import Doctor model when needed
-// import Doctor from '../models/Doctor.js';
+import Doctor from '../models/Doctor.js';
 
 const router = express.Router();
 
@@ -19,7 +18,7 @@ const createToken = (id) => {
 // Helper function to send token response
 const createSendToken = (user, statusCode, res, message = 'Success') => {
   const token = createToken(user._id);
-  
+
   const cookieOptions = {
     expires: new Date(
       Date.now() + (process.env.JWT_COOKIE_EXPIRES_IN || 7) * 24 * 60 * 60 * 1000
@@ -165,11 +164,12 @@ router.post('/signup/doctor', async (req, res) => {
       licenseNumber,
       nmc_registration,
       primarySpecialization,
-      experience
+      availability,
+      totalExperience
     } = req.body;
 
     // Validate required fields for doctors
-    if (!firstName || !lastName || !email || !phoneNumber || !password || 
+    if (!firstName || !lastName || !email || !phoneNumber || !password ||
         !licenseNumber || !primarySpecialization) {
       return res.status(400).json({
         status: 'error',
@@ -207,14 +207,15 @@ router.post('/signup/doctor', async (req, res) => {
 
     // Note: Doctor profile creation would go here
     // This requires the Doctor model which wasn't provided
-    // const newDoctor = await Doctor.create({
-    //   userId: newUser._id,
-    //   licenseNumber,
-    //   nmc_registration,
-    //   primarySpecialization,
-    //   experience: parseInt(experience) || 0,
-    //   isVerified: false // Doctors need manual verification
-    // });
+    const newDoctor = await Doctor.create({
+      userId: newUser._id,
+      licenseNumber,
+      nmc_registration,
+      primarySpecialization,
+      totalExperience: parseInt(totalExperience) || 0,
+      availability,
+      isVerified: false // Doctors need manual verification
+    });
 
     res.status(201).json({
       status: 'success',
@@ -305,7 +306,7 @@ router.post('/login', async (req, res) => {
     // If this is a patient, ensure patient profile exists
     if (user.userType === 'patient') {
       let patient = await Patient.findOne({ userId: user._id });
-      
+
       if (!patient) {
         // Create patient profile if it doesn't exist
         patient = await Patient.create({
@@ -336,7 +337,7 @@ router.post('/logout', (req, res) => {
     expires: new Date(Date.now() + 10 * 1000),
     httpOnly: true
   });
-  
+
   res.status(200).json({
     status: 'success',
     message: 'Logged out successfully'

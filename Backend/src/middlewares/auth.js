@@ -34,7 +34,7 @@ export const protect = async (req, res, next) => {
           errors: ['Token expired']
         });
       }
-      
+
       if (error.name === 'JsonWebTokenError') {
         return res.status(401).json({
           status: 'fail',
@@ -48,10 +48,11 @@ export const protect = async (req, res, next) => {
 
     // Check if user still exists
     const currentUser = await User.findById(decoded.id);
+
     if (!currentUser) {
       return res.status(401).json({
         status: 'fail',
-        message: 'The user belonging to this token does no longer exist.',
+        message: 'The user belonging to this token does no longer exist ig.',
         errors: ['User not found']
       });
     }
@@ -156,7 +157,7 @@ export const checkResourceOwnership = (resourceUserIdField = 'userId') => {
   return (req, res, next) => {
     // For routes where the resource belongs to the authenticated user
     const resourceUserId = req.params[resourceUserIdField] || req.body[resourceUserIdField];
-    
+
     if (resourceUserId && resourceUserId !== req.user.id.toString()) {
       return res.status(403).json({
         status: 'fail',
@@ -164,7 +165,7 @@ export const checkResourceOwnership = (resourceUserIdField = 'userId') => {
         errors: ['Access denied to resource']
       });
     }
-    
+
     next();
   };
 };
