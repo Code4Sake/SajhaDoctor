@@ -4,7 +4,8 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import User from '../models/User.js';
 import Patient from '../models/Patient.js';
-import Doctor from '../models/Doctor.js';
+// Import Doctor model when needed
+// import Doctor from '../models/Doctor.js';
 
 const router = express.Router();
 
@@ -164,8 +165,7 @@ router.post('/signup/doctor', async (req, res) => {
       licenseNumber,
       nmc_registration,
       primarySpecialization,
-      availability,
-      totalExperience
+      experience
     } = req.body;
 
     // Validate required fields for doctors
@@ -207,15 +207,14 @@ router.post('/signup/doctor', async (req, res) => {
 
     // Note: Doctor profile creation would go here
     // This requires the Doctor model which wasn't provided
-    const newDoctor = await Doctor.create({
-      userId: newUser._id,
-      licenseNumber,
-      nmc_registration,
-      primarySpecialization,
-      totalExperience: parseInt(totalExperience) || 0,
-      availability,
-      isVerified: false // Doctors need manual verification
-    });
+    // const newDoctor = await Doctor.create({
+    //   userId: newUser._id,
+    //   licenseNumber,
+    //   nmc_registration,
+    //   primarySpecialization,
+    //   experience: parseInt(experience) || 0,
+    //   isVerified: false // Doctors need manual verification
+    // });
 
     res.status(201).json({
       status: 'success',
@@ -369,12 +368,12 @@ router.get('/me', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // Check if user still exists
-    const currentUser = await User.findById(decoded.id);
+    const currentUser = await User.findById(decoded.id);    
     if (!currentUser) {
       return res.status(401).json({
         status: 'error',
         message: 'User no longer exists',
-        errors: ['The user belonging to this token no longer exists']
+        errors: ['The user belonging to this token no longer exists ']
       });
     }
 
