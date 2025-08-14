@@ -27,7 +27,7 @@ import {
   CheckCircle,
   PlayCircle,
   FileText,
-  DollarSign, 
+  DollarSign,
   BarChart3,
   UserPlus,
   Zap,

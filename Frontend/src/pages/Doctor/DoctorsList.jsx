@@ -1,110 +1,113 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Filter, Star, MapPin, Clock, Video, Phone, Calendar, ChevronDown } from 'lucide-react';
 
-const DoctorsList = ({ onNavigate }) => {
+const DoctorsList = ({ onNavigate = () => {} }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [sortBy, setSortBy] = useState('rating');
   const [showFilters, setShowFilters] = useState(false);
+  const [doctors, setDoctors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const doctors = [
-    {
-      id: 1,
-      name: 'Dr. Rajesh Sharma',
-      specialty: 'General Medicine',
-      experience: '15 years',
-      rating: 4.9,
-      reviews: 234,
-      location: 'Lalitpur',
-      avatar: 'RS',
-      isOnline: true,
-      nextAvailable: 'Available now',
-      languages: ['English', 'Nepali', 'Hindi'],
-      consultationFee: 800,
-      education: 'MBBS, MD Internal Medicine',
-      hospital: 'Patan Hospital'
-    },
-    {
-      id: 2,
-      name: 'Dr. Sunita Thapa',
-      specialty: 'Cardiology',
-      experience: '12 years',
-      rating: 4.8,
-      reviews: 189,
-      location: 'Kathmandu',
-      avatar: 'ST',
-      isOnline: true,
-      nextAvailable: 'Available in 5 min',
-      languages: ['English', 'Nepali'],
-      consultationFee: 1200,
-      education: 'MBBS, DM Cardiology',
-      hospital: 'Norvic International Hospital'
-    },
-    {
-      id: 3,
-      name: 'Dr. Amit Pradhan',
-      specialty: 'Pediatrics',
-      experience: '8 years',
-      rating: 4.7,
-      reviews: 156,
-      location: 'Pokhara',
-      avatar: 'AP',
-      isOnline: false,
-      nextAvailable: 'Available at 2:30 PM',
-      languages: ['English', 'Nepali'],
-      consultationFee: 900,
-      education: 'MBBS, MD Pediatrics',
-      hospital: 'Manipal Teaching Hospital'
-    },
-    {
-      id: 4,
-      name: 'Dr. Priya Maharjan',
-      specialty: 'Dermatology',
-      experience: '10 years',
-      rating: 4.9,
-      reviews: 203,
-      location: 'Kathmandu',
-      avatar: 'PM',
-      isOnline: true,
-      nextAvailable: 'Available now',
-      languages: ['English', 'Nepali', 'Newari'],
-      consultationFee: 1000,
-      education: 'MBBS, MD Dermatology',
-      hospital: 'Grande International Hospital'
-    },
-    {
-      id: 5,
-      name: 'Dr. Krishna Bahadur Thapa',
-      specialty: 'Orthopedics',
-      experience: '18 years',
-      rating: 4.8,
-      reviews: 298,
-      location: 'Chitwan',
-      avatar: 'KT',
-      isOnline: false,
-      nextAvailable: 'Available tomorrow 9:00 AM',
-      languages: ['English', 'Nepali'],
-      consultationFee: 1100,
-      education: 'MBBS, MS Orthopedics',
-      hospital: 'Bharatpur Hospital'
-    },
-    {
-      id: 6,
-      name: 'Dr. Sita Gurung',
-      specialty: 'Gynecology',
-      experience: '14 years',
-      rating: 4.9,
-      reviews: 267,
-      location: 'Kathmandu',
-      avatar: 'SG',
-      isOnline: true,
-      nextAvailable: 'Available in 10 min',
-      languages: ['English', 'Nepali', 'Hindi'],
-      consultationFee: 1150,
-      education: 'MBBS, MS Gynecology',
-      hospital: 'Civil Service Hospital'
-    }
-  ];
+  const API_BASE_URL = "http://localhost:8000";
+
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/doctors`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+
+
+
+        // Check if the API returns data in a nested structure
+        if (result.data && result.status == 'success') {
+          setDoctors(result.data.doctors);
+            console.log(doctors);
+
+        // } else if (Array.isArray(result)) {
+        //   // Same safety check for direct array response
+        //   const safeDoctors = result.map(doctor => ({
+        //     ...doctor,
+        //     name: typeof doctor.user.firstName === 'string' ? doctor.user.firstName : 'Unknown Doctor',
+        //     specialty: typeof doctor.specialty === 'string' ? doctor.specialty : 'General Medicine',
+        //     location: typeof doctor.location === 'string' ? doctor.location : 'Location not specified',
+        //     experience: typeof doctor.experience === 'string' ? doctor.experience : '0 years',
+        //     education: typeof doctor.education === 'string' ? doctor.education : 'Not specified',
+        //     hospital: typeof doctor.hospital === 'string' ? doctor.hospital : 'Not specified',
+        //     nextAvailable: typeof doctor.nextAvailable === 'string' ? doctor.nextAvailable : 'Schedule not available',
+        //     languages: Array.isArray(doctor.languages) ? doctor.languages.filter(lang => typeof lang === 'string') : ['English'],
+        //     rating: typeof doctor.rating === 'number' ? doctor.rating : 0,
+        //     reviews: typeof doctor.reviews === 'number' ? doctor.reviews : 0,
+        //     consultationFee: typeof doctor.consultationFee === 'number' ? doctor.consultationFee : 0,
+        //     isOnline: typeof doctor.isOnline === 'boolean' ? doctor.isOnline : false,
+        //     avatar: typeof doctor.avatar === 'string' ? doctor.avatar : null
+        //   }));
+        //   setDoctors(safeDoctors);
+        } else {
+          throw new Error('Invalid API response format');
+        }
+      } catch (err) {
+        console.error('Error fetching doctors:', err);
+        setError(err.message || 'Failed to fetch doctors');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDoctors();
+  }, []);
+
+  const bookFunc = ()=>{
+    
+  }
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Loading doctors...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-red-500 text-2xl">⚠️</span>
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Error Loading Doctors</h2>
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+  console.log(doctors);
 
   const filters = [
     { id: 'all', label: 'All Doctors', count: doctors.length },
@@ -126,27 +129,34 @@ const DoctorsList = ({ onNavigate }) => {
     { id: 'availability', label: 'Available First' }
   ];
 
-  // Filter and sort doctors
+  // Filter and sort doctors with additional safety checks
   const filteredDoctors = doctors
     .filter(doctor => {
-      const matchesSearch = doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          doctor.specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          doctor.location.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesFilter = selectedFilter === 'all' || 
-                          (selectedFilter === 'available' && doctor.isOnline) ||
-                          doctor.specialty.toLowerCase().includes(selectedFilter.toLowerCase());
-      
-      return matchesSearch && matchesFilter;
+      // Add safety check here too
+      if (!doctor || typeof doctor !== 'object') return false;
+
+      const name = typeof doctor.user.firstName === 'string' ? doctor.user.firstName : '';
+    //   const specialty = typeof doctor.specialty === 'string' ? doctor.specialty : '';
+    //   const location = typeof doctor.location === 'string' ? doctor.location : '';
+
+    //   const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    //                       specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    //                       location.toLowerCase().includes(searchQuery.toLowerCase());
+
+    //   const matchesFilter = selectedFilter === 'all' ||
+    //                       (selectedFilter === 'available' && doctor.isOnline) ||
+    //                       specialty.toLowerCase().includes(selectedFilter.toLowerCase());
+
+    //   return matchesSearch && matchesFilter;
     })
     .sort((a, b) => {
       switch (sortBy) {
-        case 'rating': return b.rating - a.rating;
-        case 'reviews': return b.reviews - a.reviews;
-        case 'experience': return parseInt(b.experience) - parseInt(a.experience);
-        case 'fee-low': return a.consultationFee - b.consultationFee;
-        case 'fee-high': return b.consultationFee - a.consultationFee;
-        case 'availability': return b.isOnline - a.isOnline;
+        case 'rating': return (b.rating || 0) - (a.rating || 0);
+        case 'reviews': return (b.reviews || 0) - (a.reviews || 0);
+        case 'experience': return parseInt(b.experience || '0') - parseInt(a.experience || '0');
+        case 'fee-low': return (a.consultationFee || 0) - (b.consultationFee || 0);
+        case 'fee-high': return (b.consultationFee || 0) - (a.consultationFee || 0);
+        case 'availability': return (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0);
         default: return 0;
       }
     });
@@ -154,7 +164,7 @@ const DoctorsList = ({ onNavigate }) => {
   return (
     <div className="pb-20 lg:pb-8 bg-gray-50 min-h-screen">
       <div className="container mx-auto px-4 lg:px-6 py-6 lg:py-8">
-        
+
         {/* Enhanced Header */}
         <div className="mb-8 lg:mb-12">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-6 lg:space-y-0 mb-6">
@@ -162,7 +172,7 @@ const DoctorsList = ({ onNavigate }) => {
               <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-3">Find Doctors</h1>
               <p className="text-gray-600 text-lg">Connect with {doctors.length} qualified healthcare professionals across Nepal</p>
             </div>
-            
+
             {/* Enhanced Search and Sort */}
             <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 lg:w-auto">
               <div className="flex-1 lg:w-96 relative">
@@ -176,7 +186,7 @@ const DoctorsList = ({ onNavigate }) => {
                 />
               </div>
               <div className="flex space-x-3">
-                <button 
+                <button
                   onClick={() => setShowFilters(!showFilters)}
                   className="p-4 border-2 border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-gray-300 transition-all duration-300 bg-white cursor-pointer"
                 >
@@ -230,10 +240,11 @@ const DoctorsList = ({ onNavigate }) => {
         </div>
 
         {/* Enhanced Doctors Grid */}
+
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8">
-          {filteredDoctors.map((doctor) => (
-            <div key={doctor.id} className="bg-white rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100 overflow-hidden group hover:-translate-y-2">
-              
+          {doctors.map((doctor) => (
+            <div key={doctor._id} className="bg-white rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100 overflow-hidden group hover:-translate-y-2">
+
               {/* Card Header */}
               <div className="relative p-6">
                 {/* Online Status Badge */}
@@ -246,17 +257,19 @@ const DoctorsList = ({ onNavigate }) => {
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center space-x-4 flex-1">
                     <div className={`w-16 h-16 lg:w-20 lg:h-20 rounded-2xl flex items-center justify-center text-white font-bold text-lg lg:text-xl shadow-lg ${
-                      doctor.isOnline 
-                        ? 'bg-gradient-to-r from-emerald-500 to-teal-500' 
+                      doctor.isOnline
+                        ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
                         : 'bg-gradient-to-r from-gray-400 to-gray-500'
                     }`}>
-                      {doctor.avatar}
+                      {doctor.avatar || doctor.user.firstName.split(' ').map(n => n[0]).join('').toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-xl text-gray-900 mb-1 group-hover:text-emerald-600 transition-colors duration-300 truncate">
-                        {doctor.name}
+                        {doctor.user.firstName}
                       </h3>
-                      <p className="text-emerald-600 font-semibold mb-2">{doctor.specialty}</p>
+                      <p className="text-emerald-600 font-semibold mb-2">
+                        {doctor.specialty}
+                      </p>
                       <div className="flex items-center space-x-1">
                         <Star className="w-4 h-4 text-yellow-400 fill-current" />
                         <span className="font-semibold text-gray-900">{doctor.rating}</span>
@@ -270,29 +283,27 @@ const DoctorsList = ({ onNavigate }) => {
                 <div className="space-y-3 mb-6">
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    <span className="truncate">{doctor.location} • {doctor.experience} experience</span>
+                    {/* <span className="truncate">
+                      {doctor.location} • {doctor.experience} experience
+                    </span> */}
                   </div>
-                  
+
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    <span className="truncate">{doctor.nextAvailable}</span>
+                    {/* <span className="truncate">
+                      {doctor.nextAvailable}
+                    </span> */}
                   </div>
 
                   <div className="text-sm text-gray-600">
-                    <span className="font-medium">Education:</span> {doctor.education}
+                    {/* <span className="font-medium">Education:</span> {doctor.education} */}
                   </div>
 
                   <div className="text-sm text-gray-600">
-                    <span className="font-medium">Hospital:</span> {doctor.hospital}
+                    {/* <span className="font-medium">Hospital:</span> {doctor.hospital} */}
                   </div>
 
-                  <div className="flex flex-wrap gap-1">
-                    {doctor.languages.map((lang, index) => (
-                      <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
-                        {lang}
-                      </span>
-                    ))}
-                  </div>
+
                 </div>
 
                 {/* Consultation Fee */}
@@ -300,7 +311,7 @@ const DoctorsList = ({ onNavigate }) => {
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-700">Consultation Fee</span>
                     <div className="text-right">
-                      <span className="text-lg font-bold text-emerald-600">NPR {doctor.consultationFee}</span>
+                      {/* <span className="text-lg font-bold text-emerald-600">NPR {doctor.consultationFee}</span> */}
                       <div className="text-xs text-gray-500">per session</div>
                     </div>
                   </div>
@@ -321,7 +332,7 @@ const DoctorsList = ({ onNavigate }) => {
                       {doctor.isOnline ? (
                         <>
                           <Video className="w-4 h-4" />
-                          <span>Book Now</span>
+                          <span onClick={bookFunc}>Book Now</span>
                         </>
                       ) : (
                         <span>Unavailable</span>
@@ -362,7 +373,7 @@ const DoctorsList = ({ onNavigate }) => {
         </div>
 
         {/* No Results Message */}
-        {filteredDoctors.length === 0 && (
+        {filteredDoctors.length === 0 && !loading && (
           <div className="text-center py-16">
             <div className="w-24 h-24 bg-gray-100 rounded-3xl flex items-center justify-center mx-auto mb-6">
               <Search className="w-12 h-12 text-gray-400" />

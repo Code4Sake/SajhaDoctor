@@ -23,6 +23,7 @@ import FindDoctors from './pages/Patient/FindDoctors';
 import AISymptomChecker from './pages/Patient/AISymptomChecker';
 import Prescriptions from './pages/Patient/Prescriptions';
 import Settings from './pages/Patient/Settings';
+import DoctorsList from './pages/Doctor/DoctorsList.jsx'
 
 const router = createBrowserRouter(
     createRoutesFromElements(
@@ -41,7 +42,7 @@ const router = createBrowserRouter(
             <Route path='home/Dashboard/Patients' element={<Patients />} />
             <Route path='home/Dashboard/Appointments' element={<Appointments />} />
             <Route path='home/Dashboard/Analytics' element={<Analytics />} />
-            <Route path='home/PatientDashboard/FindDoctors' element={<FindDoctors />} />
+            <Route path='home/PatientDashboard/FindDoctors' element={<DoctorsList/>} />
             <Route path='home/PatientDashboard/AISymptomChecker' element={<AISymptomChecker />} />
             <Route path='home/PatientDashboard/Prescriptions' element={<Prescriptions />} />
             <Route path='home/PatientDashboard/Appointment' element={<Appointment />} />
