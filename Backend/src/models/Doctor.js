@@ -265,14 +265,14 @@ doctorSchema.virtual('experienceYears').get(function() {
 });
 
 // Indexes
-doctorSchema.index({ userId: 1 });
-doctorSchema.index({ primarySpecialization: 1 });
-doctorSchema.index({ licenseNumber: 1 });
-doctorSchema.index({ nmc_registration: 1 });
-doctorSchema.index({ verificationStatus: 1 });
-doctorSchema.index({ isOnline: 1 });
-doctorSchema.index({ averageRating: -1 });
-doctorSchema.index({ 'currentWorkplace.hospitalName': 1 });
+// doctorSchema.index({ userId: 1 });
+// doctorSchema.index({ primarySpecialization: 1 });
+// doctorSchema.index({ licenseNumber: 1 });
+// doctorSchema.index({ nmc_registration: 1 });
+// doctorSchema.index({ verificationStatus: 1 });
+// doctorSchema.index({ isOnline: 1 });
+// doctorSchema.index({ averageRating: -1 });
+// doctorSchema.index({ 'currentWorkplace.hospitalName': 1 });
 
 const Doctor = mongoose.model('Doctor', doctorSchema, 'doctors');
 export default Doctor;

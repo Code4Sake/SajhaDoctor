@@ -1,6 +1,425 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Star, MapPin, Clock, Video, Phone, Calendar, ChevronDown } from 'lucide-react';
+import { Search, Filter, Star, MapPin, Clock, Video, Phone, Calendar, ChevronDown, ArrowLeft, CheckCircle, X, User, FileText, AlertTriangle, MessageCircle } from 'lucide-react';
 
+// Booking Form Component
+const AppointmentBookingForm = ({ doctor, onBack, onBookingSuccess }) => {
+  const [formData, setFormData] = useState({
+    scheduledDateTime: '',
+    consultationType: 'video',
+    reason: '',
+    symptoms: [''],
+    priority: 'normal'
+  });
+
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [selectedDate, setSelectedDate] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
+
+  const API_BASE_URL = "http://localhost:8000";
+
+  // Get today's date in YYYY-MM-DD format
+  const today = new Date().toISOString().split('T')[0];
+
+  // Priority options
+  const priorityOptions = [
+    { value: 'normal', label: 'Normal', color: 'text-blue-600', bg: 'bg-blue-50' },
+    { value: 'urgent', label: 'Urgent', color: 'text-orange-600', bg: 'bg-orange-50' },
+    { value: 'emergency', label: 'Emergency', color: 'text-red-600', bg: 'bg-red-50' }
+  ];
+
+  // Consultation type options
+  const consultationTypes = [
+    { value: 'video', label: 'Video Call', icon: Video, description: 'Face-to-face consultation via video' },
+    { value: 'audio', label: 'Audio Call', icon: Phone, description: 'Voice consultation via phone' },
+    { value: 'chat', label: 'Chat', icon: MessageCircle, description: 'Text-based consultation' }
+  ];
+
+  // Fetch available slots when date changes
+  useEffect(() => {
+    if (selectedDate && doctor?.userId) {
+      fetchAvailableSlots(selectedDate);
+    }
+  }, [selectedDate, doctor?.userId]);
+
+  const fetchAvailableSlots = async (date) => {
+    setLoadingAvailability(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/appointments/doctor/${doctor.userId}/availability?date=${date}`,
+        {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch availability');
+      }
+
+      const result = await response.json();
+      if (result.status === 'success') {
+        setAvailableSlots(result.data.slots || []);
+      }
+    } catch (error) {
+      console.error('Error fetching availability:', error);
+      setError('Failed to load available time slots');
+    } finally {
+      setLoadingAvailability(false);
+    }
+  };
+
+  const handleDateChange = (date) => {
+    setSelectedDate(date);
+    setFormData(prev => ({ ...prev, scheduledDateTime: '' }));
+  };
+
+  const handleTimeSlotSelect = (datetime) => {
+    setFormData(prev => ({ ...prev, scheduledDateTime: datetime }));
+  };
+
+  const handleSymptomChange = (index, value) => {
+    const newSymptoms = [...formData.symptoms];
+    newSymptoms[index] = value;
+    setFormData(prev => ({ ...prev, symptoms: newSymptoms }));
+  };
+
+  const addSymptom = () => {
+    setFormData(prev => ({
+      ...prev,
+      symptoms: [...prev.symptoms, '']
+    }));
+  };
+
+  const removeSymptom = (index) => {
+    if (formData.symptoms.length > 1) {
+      const newSymptoms = formData.symptoms.filter((_, i) => i !== index);
+      setFormData(prev => ({ ...prev, symptoms: newSymptoms }));
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      // Filter out empty symptoms
+      const filteredSymptoms = formData.symptoms.filter(symptom => symptom.trim() !== '');
+
+      const bookingData = {
+        doctorUserId: doctor.userId,
+        scheduledDateTime: formData.scheduledDateTime,
+        consultationType: formData.consultationType,
+        reason: formData.reason,
+        symptoms: filteredSymptoms,
+        priority: formData.priority
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/appointments/book`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(bookingData)
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.status === 'success') {
+        setSuccess('Appointment booked successfully!');
+        setTimeout(() => {
+          onBookingSuccess && onBookingSuccess(result.data.appointment);
+        }, 2000);
+      } else {
+        setError(result.message || 'Failed to book appointment');
+      }
+    } catch (error) {
+      console.error('Error booking appointment:', error);
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 bg-white rounded-3xl shadow-lg">
+        <div className="text-center py-12">
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle className="w-12 h-12 text-green-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Booking Successful!</h2>
+          <p className="text-gray-600 mb-8">{success}</p>
+          <button
+            onClick={onBack}
+            className="bg-gradient-to-r from-emerald-500 to-blue-500 text-white px-8 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-300"
+          >
+            Back to Doctors
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto p-6 bg-gray-50 min-h-screen">
+      {/* Header */}
+      <div className="mb-8">
+        <button
+          onClick={onBack}
+          className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 mb-6 transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          <span>Back to Doctors</span>
+        </button>
+
+        <div className="bg-white rounded-3xl p-6 shadow-lg mb-8">
+          <div className="flex items-center space-x-4">
+            <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center text-white font-bold text-xl">
+              {doctor?.user?.firstName?.charAt(0)}
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Book Appointment</h1>
+              <p className="text-emerald-600 font-semibold">Dr. {doctor?.user?.firstName} {doctor?.user?.lastName}</p>
+              <p className="text-gray-600">{doctor?.primarySpecialization}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+            <span className="text-red-800 font-medium">{error}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Booking Content */}
+      <div className="space-y-8">
+        {/* Date Selection */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg">
+          <div className="flex items-center space-x-2 mb-6">
+            <Calendar className="w-6 h-6 text-emerald-600" />
+            <h2 className="text-xl font-bold text-gray-900">Select Date</h2>
+          </div>
+
+          <input
+            type="date"
+            min={today}
+            value={selectedDate}
+            onChange={(e) => handleDateChange(e.target.value)}
+            className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-300"
+            required
+          />
+        </div>
+
+        {/* Time Slots */}
+        {selectedDate && (
+          <div className="bg-white rounded-3xl p-6 shadow-lg">
+            <div className="flex items-center space-x-2 mb-6">
+              <Clock className="w-6 h-6 text-emerald-600" />
+              <h2 className="text-xl font-bold text-gray-900">Available Time Slots</h2>
+            </div>
+
+            {loadingAvailability ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+                <span className="ml-3 text-gray-600">Loading available slots...</span>
+              </div>
+            ) : availableSlots.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-gray-600">No available slots for this date</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {availableSlots.map((slot, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => handleTimeSlotSelect(slot.datetime)}
+                    className={`p-3 rounded-xl border-2 font-medium transition-all duration-300 ${
+                      formData.scheduledDateTime === slot.datetime
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {slot.time}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Consultation Type */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg">
+          <div className="flex items-center space-x-2 mb-6">
+            <Video className="w-6 h-6 text-emerald-600" />
+            <h2 className="text-xl font-bold text-gray-900">Consultation Type</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {consultationTypes.map((type) => (
+              <label
+                key={type.value}
+                className={`cursor-pointer p-4 rounded-xl border-2 transition-all duration-300 ${
+                  formData.consultationType === type.value
+                    ? 'border-emerald-500 bg-emerald-50'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  value={type.value}
+                  checked={formData.consultationType === type.value}
+                  onChange={(e) => setFormData(prev => ({ ...prev, consultationType: e.target.value }))}
+                  className="sr-only"
+                />
+                <div className="flex items-center space-x-3">
+                  <type.icon className={`w-6 h-6 ${formData.consultationType === type.value ? 'text-emerald-600' : 'text-gray-400'}`} />
+                  <div>
+                    <div className="font-semibold text-gray-900">{type.label}</div>
+                    <div className="text-sm text-gray-600">{type.description}</div>
+                  </div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Priority */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg">
+          <div className="flex items-center space-x-2 mb-6">
+            <AlertTriangle className="w-6 h-6 text-emerald-600" />
+            <h2 className="text-xl font-bold text-gray-900">Priority Level</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {priorityOptions.map((priority) => (
+              <label
+                key={priority.value}
+                className={`cursor-pointer p-4 rounded-xl border-2 transition-all duration-300 ${
+                  formData.priority === priority.value
+                    ? `border-${priority.value === 'emergency' ? 'red' : priority.value === 'urgent' ? 'orange' : 'blue'}-500 ${priority.bg}`
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  value={priority.value}
+                  checked={formData.priority === priority.value}
+                  onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value }))}
+                  className="sr-only"
+                />
+                <div className={`font-semibold ${formData.priority === priority.value ? priority.color : 'text-gray-700'}`}>
+                  {priority.label}
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Reason */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg">
+          <div className="flex items-center space-x-2 mb-6">
+            <FileText className="w-6 h-6 text-emerald-600" />
+            <h2 className="text-xl font-bold text-gray-900">Reason for Consultation</h2>
+          </div>
+
+          <textarea
+            value={formData.reason}
+            onChange={(e) => setFormData(prev => ({ ...prev, reason: e.target.value }))}
+            placeholder="Please describe the reason for your consultation..."
+            rows={4}
+            className="w-full p-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-300 resize-none"
+            required
+          />
+        </div>
+
+        {/* Symptoms */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg">
+          <div className="flex items-center space-x-2 mb-6">
+            <User className="w-6 h-6 text-emerald-600" />
+            <h2 className="text-xl font-bold text-gray-900">Symptoms (Optional)</h2>
+          </div>
+
+          <div className="space-y-3">
+            {formData.symptoms.map((symptom, index) => (
+              <div key={index} className="flex items-center space-x-3">
+                <input
+                  type="text"
+                  value={symptom}
+                  onChange={(e) => handleSymptomChange(index, e.target.value)}
+                  placeholder={`Symptom ${index + 1}`}
+                  className="flex-1 p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-300"
+                />
+                {formData.symptoms.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeSymptom(index)}
+                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={addSymptom}
+              className="text-emerald-600 hover:text-emerald-700 font-medium transition-colors"
+            >
+              + Add Another Symptom
+            </button>
+          </div>
+        </div>
+
+        {/* Submit Button */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg">
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={loading || !formData.scheduledDateTime || !formData.reason}
+            className={`w-full py-4 rounded-xl font-bold text-lg transition-all duration-300 ${
+              loading || !formData.scheduledDateTime || !formData.reason
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white shadow-lg hover:shadow-xl transform hover:scale-[1.02]'
+            }`}
+          >
+            {loading ? (
+              <div className="flex items-center justify-center space-x-2">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <span>Booking Appointment...</span>
+              </div>
+            ) : (
+              'Book Appointment'
+            )}
+          </button>
+
+          {(!formData.scheduledDateTime || !formData.reason) && (
+            <p className="text-center text-gray-500 text-sm mt-3">
+              Please complete all required fields to continue
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Main DoctorsList Component
 const DoctorsList = ({ onNavigate = () => {} }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
@@ -9,6 +428,10 @@ const DoctorsList = ({ onNavigate = () => {} }) => {
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Booking state
+  const [showBookingForm, setShowBookingForm] = useState(false);
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
 
   const API_BASE_URL = "http://localhost:8000";
 
@@ -31,32 +454,8 @@ const DoctorsList = ({ onNavigate = () => {} }) => {
 
         const result = await response.json();
 
-
-
-        // Check if the API returns data in a nested structure
         if (result.data && result.status == 'success') {
           setDoctors(result.data.doctors);
-            console.log(doctors);
-
-        // } else if (Array.isArray(result)) {
-        //   // Same safety check for direct array response
-        //   const safeDoctors = result.map(doctor => ({
-        //     ...doctor,
-        //     name: typeof doctor.user.firstName === 'string' ? doctor.user.firstName : 'Unknown Doctor',
-        //     specialty: typeof doctor.specialty === 'string' ? doctor.specialty : 'General Medicine',
-        //     location: typeof doctor.location === 'string' ? doctor.location : 'Location not specified',
-        //     experience: typeof doctor.experience === 'string' ? doctor.experience : '0 years',
-        //     education: typeof doctor.education === 'string' ? doctor.education : 'Not specified',
-        //     hospital: typeof doctor.hospital === 'string' ? doctor.hospital : 'Not specified',
-        //     nextAvailable: typeof doctor.nextAvailable === 'string' ? doctor.nextAvailable : 'Schedule not available',
-        //     languages: Array.isArray(doctor.languages) ? doctor.languages.filter(lang => typeof lang === 'string') : ['English'],
-        //     rating: typeof doctor.rating === 'number' ? doctor.rating : 0,
-        //     reviews: typeof doctor.reviews === 'number' ? doctor.reviews : 0,
-        //     consultationFee: typeof doctor.consultationFee === 'number' ? doctor.consultationFee : 0,
-        //     isOnline: typeof doctor.isOnline === 'boolean' ? doctor.isOnline : false,
-        //     avatar: typeof doctor.avatar === 'string' ? doctor.avatar : null
-        //   }));
-        //   setDoctors(safeDoctors);
         } else {
           throw new Error('Invalid API response format');
         }
@@ -71,8 +470,34 @@ const DoctorsList = ({ onNavigate = () => {} }) => {
     fetchDoctors();
   }, []);
 
-  const bookFunc = ()=>{
-    
+  const handleBookAppointment = (doctor) => {
+    setSelectedDoctor(doctor);
+    setShowBookingForm(true);
+  };
+
+  const handleBackToDoctors = () => {
+    setShowBookingForm(false);
+    setSelectedDoctor(null);
+  };
+
+  const handleBookingSuccess = (appointment) => {
+    console.log('Appointment booked successfully:', appointment);
+    // Handle successful booking (maybe show a success message, navigate somewhere, etc.)
+    setTimeout(() => {
+      setShowBookingForm(false);
+      setSelectedDoctor(null);
+    }, 2000);
+  };
+
+  // Show booking form if requested
+  if (showBookingForm && selectedDoctor) {
+    return (
+      <AppointmentBookingForm
+        doctor={selectedDoctor}
+        onBack={handleBackToDoctors}
+        onBookingSuccess={handleBookingSuccess}
+      />
+    );
   }
 
   // Show loading state
@@ -107,301 +532,335 @@ const DoctorsList = ({ onNavigate = () => {} }) => {
       </div>
     );
   }
-  console.log(doctors);
 
   const filters = [
     { id: 'all', label: 'All Doctors', count: doctors.length },
     { id: 'available', label: 'Available Now', count: doctors.filter(d => d.isOnline).length },
-    { id: 'general', label: 'General Medicine', count: doctors.filter(d => d.specialty === 'General Medicine').length },
-    { id: 'cardiology', label: 'Cardiology', count: doctors.filter(d => d.specialty === 'Cardiology').length },
-    { id: 'pediatrics', label: 'Pediatrics', count: doctors.filter(d => d.specialty === 'Pediatrics').length },
-    { id: 'dermatology', label: 'Dermatology', count: doctors.filter(d => d.specialty === 'Dermatology').length },
-    { id: 'orthopedics', label: 'Orthopedics', count: doctors.filter(d => d.specialty === 'Orthopedics').length },
-    { id: 'gynecology', label: 'Gynecology', count: doctors.filter(d => d.specialty === 'Gynecology').length }
+    { id: 'cardiology', label: 'Cardiology', count: doctors.filter(d => d.primarySpecialization?.toLowerCase().includes('cardiology')).length },
+    { id: 'surgery', label: 'Surgery', count: doctors.filter(d => d.primarySpecialization?.toLowerCase().includes('surgery')).length },
+    { id: 'gastroenterology', label: 'Gastroenterology', count: doctors.filter(d => d.primarySpecialization?.toLowerCase().includes('gastroenterology')).length },
+    { id: 'ent', label: 'ENT', count: doctors.filter(d => d.primarySpecialization?.toLowerCase().includes('ent')).length },
+    { id: 'dentistry', label: 'Dentistry', count: doctors.filter(d => d.primarySpecialization?.toLowerCase().includes('dentistry')).length },
   ];
 
   const sortOptions = [
-    { id: 'rating', label: 'Highest Rated' },
-    { id: 'reviews', label: 'Most Reviewed' },
-    { id: 'experience', label: 'Most Experienced' },
-    { id: 'fee-low', label: 'Lowest Fee' },
-    { id: 'fee-high', label: 'Highest Fee' },
-    { id: 'availability', label: 'Available First' }
+    { value: 'rating', label: 'Rating' },
+    { value: 'experience', label: 'Experience' },
+    { value: 'online', label: 'Online Status' },
+    { value: 'name', label: 'Name' },
   ];
 
-  // Filter and sort doctors with additional safety checks
-  const filteredDoctors = doctors
-    .filter(doctor => {
-      // Add safety check here too
-      if (!doctor || typeof doctor !== 'object') return false;
+  // Filter and search doctors
+  const filteredDoctors = doctors.filter(doctor => {
+    const matchesSearch = !searchQuery ||
+      doctor.user.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doctor.user.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doctor.primarySpecialization.toLowerCase().includes(searchQuery.toLowerCase());
 
-      const name = typeof doctor.user.firstName === 'string' ? doctor.user.firstName : '';
-    //   const specialty = typeof doctor.specialty === 'string' ? doctor.specialty : '';
-    //   const location = typeof doctor.location === 'string' ? doctor.location : '';
+    if (selectedFilter === 'all') return matchesSearch;
+    if (selectedFilter === 'available') return matchesSearch && doctor.isOnline;
 
-    //   const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    //                       specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    //                       location.toLowerCase().includes(searchQuery.toLowerCase());
+    // Filter by specialty
+    return matchesSearch && doctor.primarySpecialization?.toLowerCase().includes(selectedFilter);
+  });
 
-    //   const matchesFilter = selectedFilter === 'all' ||
-    //                       (selectedFilter === 'available' && doctor.isOnline) ||
-    //                       specialty.toLowerCase().includes(selectedFilter.toLowerCase());
-
-    //   return matchesSearch && matchesFilter;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'rating': return (b.rating || 0) - (a.rating || 0);
-        case 'reviews': return (b.reviews || 0) - (a.reviews || 0);
-        case 'experience': return parseInt(b.experience || '0') - parseInt(a.experience || '0');
-        case 'fee-low': return (a.consultationFee || 0) - (b.consultationFee || 0);
-        case 'fee-high': return (b.consultationFee || 0) - (a.consultationFee || 0);
-        case 'availability': return (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0);
-        default: return 0;
-      }
-    });
+  // Sort doctors
+  const sortedDoctors = [...filteredDoctors].sort((a, b) => {
+    switch (sortBy) {
+      case 'rating':
+        return (b.averageRating || 0) - (a.averageRating || 0);
+      case 'experience':
+        return (b.totalExperience || 0) - (a.totalExperience || 0);
+      case 'name':
+        return `${a.user.firstName} ${a.user.lastName}`.localeCompare(`${b.user.firstName} ${b.user.lastName}`);
+      case 'online':
+        return (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0);
+      default:
+        return 0;
+    }
+  });
 
   return (
-    <div className="pb-20 lg:pb-8 bg-gray-50 min-h-screen">
-      <div className="container mx-auto px-4 lg:px-6 py-6 lg:py-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Find Your Doctor</h1>
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            Connect with qualified healthcare professionals and book your appointment today
+          </p>
+        </div>
 
-        {/* Enhanced Header */}
-        <div className="mb-8 lg:mb-12">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-6 lg:space-y-0 mb-6">
-            <div>
-              <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-3">Find Doctors</h1>
-              <p className="text-gray-600 text-lg">Connect with {doctors.length} qualified healthcare professionals across Nepal</p>
+        {/* Search and Filters */}
+        <div className="bg-white rounded-3xl shadow-xl p-6 mb-8">
+          <div className="flex flex-col lg:flex-row gap-6">
+            {/* Search Bar */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search doctors by name or specialty..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-300"
+              />
             </div>
 
-            {/* Enhanced Search and Sort */}
-            <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 lg:w-auto">
-              <div className="flex-1 lg:w-96 relative">
-                <Search className="w-5 h-5 absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search doctors, specialties, locations..."
-                  className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white shadow-sm transition-all duration-300"
-                />
-              </div>
-              <div className="flex space-x-3">
+            {/* Filter Toggle */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center space-x-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+            >
+              <Filter className="w-5 h-5" />
+              <span>Filters</span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Sort Dropdown */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            >
+              {sortOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  Sort by {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filter Pills */}
+          {showFilters && (
+            <div className="flex flex-wrap gap-3 mt-6 pt-6 border-t border-gray-200">
+              {filters.map(filter => (
                 <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="p-4 border-2 border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-gray-300 transition-all duration-300 bg-white cursor-pointer"
+                  key={filter.id}
+                  onClick={() => setSelectedFilter(filter.id)}
+                  className={`px-4 py-2 rounded-full font-medium transition-all duration-300 ${
+                    selectedFilter === filter.id
+                      ? 'bg-emerald-500 text-white shadow-lg'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
                 >
-                  <Filter className="w-5 h-5 text-gray-600" />
+                  {filter.label} ({filter.count})
                 </button>
-                <div className="relative">
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    className="appearance-none bg-white border-2 border-gray-200 rounded-2xl px-4 py-4 pr-10 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-300 cursor-pointer"
-                  >
-                    {sortOptions.map(option => (
-                      <option key={option.id} value={option.id}>{option.label}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
-                </div>
-              </div>
+              ))}
             </div>
-          </div>
+          )}
+        </div>
 
-          {/* Enhanced Filter Tags */}
-          <div className="flex space-x-3 overflow-x-auto pb-2 scrollbar-hide">
-            {filters.map((filter) => (
-              <button
-                key={filter.id}
-                onClick={() => setSelectedFilter(filter.id)}
-                className={`px-6 py-3 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-300 transform hover:scale-105 cursor-pointer ${
-                  selectedFilter === filter.id
-                    ? 'bg-gradient-to-r from-emerald-500 to-blue-500 text-white shadow-lg'
-                    : 'bg-white hover:bg-gray-50 text-gray-700 border-2 border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                {filter.label}
-                <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
-                  selectedFilter === filter.id
-                    ? 'bg-white/20 text-white'
-                    : 'bg-gray-100 text-gray-600'
-                }`}>
-                  {filter.count}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {/* Results Count */}
-          <div className="mt-6 text-sm text-gray-600">
-            Showing <span className="font-semibold text-gray-900">{filteredDoctors.length}</span> of <span className="font-semibold text-gray-900">{doctors.length}</span> doctors
+        {/* Results Count */}
+        <div className="mb-6">
+          <p className="text-gray-600">
+            Showing {sortedDoctors.length} doctor{sortedDoctors.length !== 1 ? 's' : ''}
             {searchQuery && ` for "${searchQuery}"`}
-          </div>
+          </p>
         </div>
 
-        {/* Enhanced Doctors Grid */}
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8">
-          {doctors.map((doctor) => (
-            <div key={doctor._id} className="bg-white rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100 overflow-hidden group hover:-translate-y-2">
-
-              {/* Card Header */}
-              <div className="relative p-6">
-                {/* Online Status Badge */}
-                {doctor.isOnline && (
-                  <div className="absolute top-4 right-4 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-semibold animate-pulse">
-                    Online
-                  </div>
-                )}
-
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-4 flex-1">
-                    <div className={`w-16 h-16 lg:w-20 lg:h-20 rounded-2xl flex items-center justify-center text-white font-bold text-lg lg:text-xl shadow-lg ${
-                      doctor.isOnline
-                        ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
-                        : 'bg-gradient-to-r from-gray-400 to-gray-500'
-                    }`}>
-                      {doctor.avatar || doctor.user.firstName.split(' ').map(n => n[0]).join('').toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-xl text-gray-900 mb-1 group-hover:text-emerald-600 transition-colors duration-300 truncate">
-                        {doctor.user.firstName}
-                      </h3>
-                      <p className="text-emerald-600 font-semibold mb-2">
-                        {doctor.specialty}
-                      </p>
-                      <div className="flex items-center space-x-1">
-                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                        <span className="font-semibold text-gray-900">{doctor.rating}</span>
-                        <span className="text-gray-500 text-sm">({doctor.reviews})</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Doctor Details */}
-                <div className="space-y-3 mb-6">
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    {/* <span className="truncate">
-                      {doctor.location} • {doctor.experience} experience
-                    </span> */}
-                  </div>
-
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    {/* <span className="truncate">
-                      {doctor.nextAvailable}
-                    </span> */}
-                  </div>
-
-                  <div className="text-sm text-gray-600">
-                    {/* <span className="font-medium">Education:</span> {doctor.education} */}
-                  </div>
-
-                  <div className="text-sm text-gray-600">
-                    {/* <span className="font-medium">Hospital:</span> {doctor.hospital} */}
-                  </div>
-
-
-                </div>
-
-                {/* Consultation Fee */}
-                <div className="bg-gradient-to-r from-emerald-50 to-blue-50 rounded-xl p-4 mb-6">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">Consultation Fee</span>
-                    <div className="text-right">
-                      {/* <span className="text-lg font-bold text-emerald-600">NPR {doctor.consultationFee}</span> */}
-                      <div className="text-xs text-gray-500">per session</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => onNavigate('book-appointment')}
-                    className={`flex-1 font-semibold py-3 px-4 rounded-xl transition-all duration-300 transform hover:scale-105 cursor-pointer ${
-                      doctor.isOnline
-                        ? 'bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white shadow-lg hover:shadow-xl'
-                        : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                    }`}
-                    disabled={!doctor.isOnline}
-                  >
-                    <div className="flex items-center justify-center space-x-2">
-                      {doctor.isOnline ? (
-                        <>
-                          <Video className="w-4 h-4" />
-                          <span onClick={bookFunc}>Book Now</span>
-                        </>
-                      ) : (
-                        <span>Unavailable</span>
-                      )}
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => onNavigate('doctor-profile')}
-                    className="px-4 py-3 border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 rounded-xl font-semibold transition-all duration-300 cursor-pointer"
-                  >
-                    View Profile
-                  </button>
-                </div>
-
-                {/* Quick Actions */}
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
-                  <div className="flex space-x-3">
-                    <button className="flex items-center space-x-1 text-sm text-gray-600 hover:text-emerald-600 transition-colors duration-200 cursor-pointer">
-                      <Phone className="w-4 h-4" />
-                      <span>Call</span>
-                    </button>
-                    <button className="flex items-center space-x-1 text-sm text-gray-600 hover:text-blue-600 transition-colors duration-200 cursor-pointer">
-                      <Video className="w-4 h-4" />
-                      <span>Video</span>
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => onNavigate('schedule')}
-                    className="flex items-center space-x-1 text-sm text-gray-600 hover:text-purple-600 transition-colors duration-200 cursor-pointer"
-                  >
-                    <Calendar className="w-4 h-4" />
-                    <span>Schedule</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* No Results Message */}
-        {filteredDoctors.length === 0 && !loading && (
-          <div className="text-center py-16">
-            <div className="w-24 h-24 bg-gray-100 rounded-3xl flex items-center justify-center mx-auto mb-6">
+        {/* Doctors Grid */}
+        {sortedDoctors.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Search className="w-12 h-12 text-gray-400" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">No doctors found</h3>
-            <p className="text-gray-600 text-lg mb-8 max-w-md mx-auto">
-              Try adjusting your search criteria or filters to find more doctors.
-            </p>
-            <button
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedFilter('all');
-              }}
-              className="bg-gradient-to-r from-emerald-500 to-blue-500 text-white px-8 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-300 transform hover:scale-105 cursor-pointer"
-            >
-              Clear Filters
-            </button>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No doctors found</h3>
+            <p className="text-gray-600">Try adjusting your search or filters</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {sortedDoctors.map((doctor, index) => (
+              <DoctorCard
+                key={doctor._id || index}
+                doctor={doctor}
+                onBookAppointment={handleBookAppointment}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Doctor Card Component
+const DoctorCard = ({ doctor, onBookAppointment }) => {
+  const getRatingStars = (rating) => {
+    return Array.from({ length: 5 }, (_, i) => (
+      <Star
+        key={i}
+        className={`w-4 h-4 ${
+          i < Math.floor(rating || 0) ? 'text-yellow-400 fill-current' : 'text-gray-300'
+        }`}
+      />
+    ));
+  };
+
+  const getLocationString = (address) => {
+    if (!address) return 'Location not specified';
+    const parts = [address.municipality, address.district, address.province].filter(Boolean);
+    return parts.join(', ') || 'Location not specified';
+  };
+
+  return (
+    <div className="bg-white rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group hover:-translate-y-1">
+      <div className="p-6">
+        {/* Doctor Avatar and Status */}
+        <div className="flex items-center space-x-4 mb-4">
+          <div className="relative">
+            <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center text-white font-bold text-xl">
+              {doctor.user.firstName?.charAt(0)}{doctor.user.lastName?.charAt(0)}
+            </div>
+            {doctor.isOnline && (
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 border-2 border-white rounded-full"></div>
+            )}
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-bold text-gray-900">
+              Dr. {doctor.user.firstName} {doctor.user.lastName}
+            </h3>
+            <p className="text-emerald-600 font-medium">{doctor.primarySpecialization}</p>
+            <div className="flex items-center space-x-1 mt-1">
+              {getRatingStars(doctor.averageRating)}
+              <span className="text-sm text-gray-600 ml-1">
+                ({doctor.averageRating?.toFixed(1) || '0.0'}) • {doctor.totalReviews} reviews
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Doctor Info */}
+        <div className="space-y-3 mb-6">
+          <div className="flex items-center space-x-2 text-gray-600">
+            <MapPin className="w-4 h-4" />
+            <span className="text-sm">{getLocationString(doctor.user.address)}</span>
+          </div>
+          <div className="flex items-center space-x-2 text-gray-600">
+            <Clock className="w-4 h-4" />
+            <span className="text-sm">
+              {doctor.totalExperience} years experience
+            </span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${doctor.isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+            <span className={`text-sm font-medium ${doctor.isOnline ? 'text-green-600' : 'text-gray-500'}`}>
+              {doctor.isOnline ? 'Online Now' : 'Offline'}
+            </span>
+          </div>
+        </div>
+
+        {/* Current Workplace */}
+        {doctor.currentWorkplace && doctor.currentWorkplace.length > 0 && (
+          <div className="mb-6">
+            <p className="text-xs font-medium text-gray-500 mb-2">CURRENT WORKPLACE</p>
+            <div className="bg-gray-50 rounded-xl p-3">
+              <p className="font-semibold text-gray-900">{doctor.currentWorkplace[0].hospitalName}</p>
+              {doctor.currentWorkplace[0].position && (
+                <p className="text-sm text-gray-600">{doctor.currentWorkplace[0].position}</p>
+              )}
+            </div>
           </div>
         )}
 
-        {/* Load More */}
-        {filteredDoctors.length > 0 && filteredDoctors.length === doctors.length && (
-          <div className="text-center mt-12">
-            <button className="bg-white hover:bg-gray-50 text-gray-700 border-2 border-gray-200 hover:border-gray-300 font-semibold py-4 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl cursor-pointer">
-              Load More Doctors
-            </button>
+        {/* Bio */}
+        {doctor.bio && (
+          <div className="mb-6">
+            <p className="text-sm text-gray-600 line-clamp-3">
+              {doctor.bio}
+            </p>
           </div>
         )}
+
+        {/* Languages */}
+        {doctor.languagesSpoken && doctor.languagesSpoken.length > 0 && (
+          <div className="mb-6">
+            <p className="text-xs font-medium text-gray-500 mb-2">LANGUAGES</p>
+            <div className="flex flex-wrap gap-2">
+              {doctor.languagesSpoken.map((language, index) => (
+                <span
+                  key={index}
+                  className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-lg font-medium"
+                >
+                  {language}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Pricing */}
+        {doctor.consultationFee && (
+          <div className="mb-6">
+            <p className="text-xs font-medium text-gray-500 mb-2">CONSULTATION FEES</p>
+            <div className="grid grid-cols-2 gap-2">
+              {doctor.consultationFee.video && (
+                <div className="bg-emerald-50 rounded-lg p-2">
+                  <p className="text-xs text-emerald-600 font-medium">Video</p>
+                  <p className="text-sm font-bold text-gray-900">Rs. {doctor.consultationFee.video}</p>
+                </div>
+              )}
+              {doctor.consultationFee.audio && (
+                <div className="bg-blue-50 rounded-lg p-2">
+                  <p className="text-xs text-blue-600 font-medium">Audio</p>
+                  <p className="text-sm font-bold text-gray-900">Rs. {doctor.consultationFee.audio}</p>
+                </div>
+              )}
+              {doctor.consultationFee.chat && (
+                <div className="bg-purple-50 rounded-lg p-2">
+                  <p className="text-xs text-purple-600 font-medium">Chat</p>
+                  <p className="text-sm font-bold text-gray-900">Rs. {doctor.consultationFee.chat}</p>
+                </div>
+              )}
+              {doctor.consultationFee.inPerson && (
+                <div className="bg-orange-50 rounded-lg p-2">
+                  <p className="text-xs text-orange-600 font-medium">In Person</p>
+                  <p className="text-sm font-bold text-gray-900">Rs. {doctor.consultationFee.inPerson}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="space-y-3">
+          <button
+            onClick={() => onBookAppointment(doctor)}
+            className="w-full bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+          >
+            Book Appointment
+          </button>
+
+          <div className="flex space-x-2">
+            {doctor.consultationFee?.video && (
+              <button className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-xl font-medium transition-colors flex items-center justify-center space-x-2">
+                <Video className="w-4 h-4" />
+                <span>Video</span>
+              </button>
+            )}
+            {doctor.consultationFee?.audio && (
+              <button className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-xl font-medium transition-colors flex items-center justify-center space-x-2">
+                <Phone className="w-4 h-4" />
+                <span>Call</span>
+              </button>
+            )}
+            {doctor.consultationFee?.chat && (
+              <button className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-xl font-medium transition-colors flex items-center justify-center space-x-2">
+                <MessageCircle className="w-4 h-4" />
+                <span>Chat</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Stats Footer */}
+      <div className="bg-gray-50 px-6 py-3 border-t border-gray-100">
+        <div className="flex items-center justify-between text-xs text-gray-500">
+          <span>{doctor.totalConsultations} consultations</span>
+          <span className={`${doctor.verificationStatus === 'verified' ? 'text-green-600' : 'text-orange-600'}`}>
+            {doctor.verificationStatus === 'verified' ? '✓ Verified' : 'Pending Verification'}
+          </span>
+        </div>
       </div>
     </div>
   );

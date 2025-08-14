@@ -10,204 +10,7 @@ const router = express.Router();
 // @access  Public
 
 // Add this at the end of your doctors.js file, before export default router;
-router.get('/debug/raw-data', async (req, res) => {
-  try {
-    // Check raw doctor documents
-    const doctors = await Doctor.find({}).limit(5);
-    const users = await User.find({ userType: 'doctor' }).limit(5);
 
-    // Check what verification statuses exist
-    const verificationStatuses = await Doctor.distinct('verificationStatus');
-
-    res.json({
-      status: 'success',
-      data: {
-        doctorsCount: await Doctor.countDocuments(),
-        doctorUsersCount: await User.countDocuments({ userType: 'doctor' }),
-        verificationStatuses: verificationStatuses,
-        sampleDoctors: doctors,
-        sampleUsers: users
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.get('/', async (req, res) => {
-  try {
-    const {
-      specialization,
-      province,
-      district,
-      municipality,
-      isOnline,
-      language,
-      minRating = 0,
-      maxFee,
-      consultationType = 'video',
-      availableNow = false,
-      sortBy = 'averageRating',
-      sortOrder = 'desc',
-      page = 1,
-      limit = 12,
-      search
-    } = req.query;
-
-    // Build doctor filter
-    const doctorFilter = {
-    //   verificationStatus: 'verified'
-    };
-
-    if (specialization) {
-      doctorFilter.$or = [
-        { primarySpecialization: specialization },
-        { secondarySpecializations: { $in: [specialization] } }
-      ];
-    }
-
-    if (isOnline !== undefined) {
-      doctorFilter.isOnline = isOnline === 'true';
-    }
-
-    if (minRating > 0) {
-      doctorFilter.averageRating = { $gte: parseFloat(minRating) };
-    }
-
-    if (maxFee) {
-      doctorFilter[`consultationFee.${consultationType}`] = { $lte: parseInt(maxFee) };
-    }
-
-    if (language) {
-      doctorFilter.languagesSpoken = { $in: [language] };
-    }
-
-    if (availableNow === 'true') {
-      doctorFilter.isOnline = true;
-      // Add logic for current day/time availability
-      const now = new Date();
-      const currentDay = now.toLocaleDateString('en-US', { weekday: 'lowercase' });
-      const currentTime = now.toTimeString().slice(0, 5);
-
-      doctorFilter[`availability.${currentDay}.available`] = true;
-    }
-
-    // Build user match conditions (for the aggregation pipeline)
-    const userMatchConditions = {
-      'user.userType': 'doctor',
-      'user.isActive': true
-    };
-
-    if (province) userMatchConditions['user.address.province'] = province;
-    if (district) userMatchConditions['user.address.district'] = district;
-    if (municipality) userMatchConditions['user.address.municipality'] = municipality;
-
-    if (search) {
-      userMatchConditions.$or = [
-        { 'user.firstName': { $regex: search, $options: 'i' } },
-        { 'user.lastName': { $regex: search, $options: 'i' } },
-        { 'user.email': { $regex: search, $options: 'i' } }
-      ];
-    }
-
-    // Pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const sortDirection = sortOrder === 'desc' ? -1 : 1;
-
-    console.log('Doctor Filter:', doctorFilter);
-    console.log('User Match Conditions:', userMatchConditions);
-
-    // Aggregate query to join and filter
-    const doctors = await Doctor.aggregate([
-      { $match: doctorFilter },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'userId',
-          foreignField: '_id',
-          as: 'user'
-        }
-      },
-      { $unwind: '$user' },
-      { $match: userMatchConditions },
-      { $sort: { [sortBy]: sortDirection } },
-      { $skip: skip },
-      { $limit: parseInt(limit) },
-      {
-        $project: {
-          _id: 1,
-          userId: 1,
-          primarySpecialization: 1,
-          secondarySpecializations: 1,
-          totalExperience: 1,
-          consultationFee: 1,
-          averageRating: 1,
-          totalReviews: 1,
-          totalConsultations: 1,
-          isOnline: 1,
-          languagesSpoken: 1,
-          bio: 1,
-          availability: 1,
-          verificationStatus: 1,
-          'user.firstName': 1,
-          'user.lastName': 1,
-          'user.profilePicture': 1,
-          'user.address': 1,
-          currentWorkplace: 1
-        }
-      }
-    ]);
-
-    // Get total count for pagination (simplified count)
-    const totalCountResult = await Doctor.aggregate([
-      { $match: doctorFilter },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'userId',
-          foreignField: '_id',
-          as: 'user'
-        }
-      },
-      { $unwind: '$user' },
-      { $match: userMatchConditions },
-      { $count: "total" }
-    ]);
-
-    const totalDoctors = totalCountResult.length > 0 ? totalCountResult[0].total : 0;
-
-    console.log('Found doctors:', doctors.length);
-    console.log('Total doctors:', totalDoctors);
-
-    res.json({
-      status: 'success',
-      results: doctors.length,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(totalDoctors / parseInt(limit)),
-        totalDoctors,
-        hasNext: skip + doctors.length < totalDoctors,
-        hasPrev: parseInt(page) > 1
-      },
-      data: {
-        doctors
-      },
-      debug: {
-        doctorFilter,
-        userMatchConditions,
-        totalFound: doctors.length
-      }
-    });
-
-  } catch (error) {
-    console.error('Error in doctors route:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Error fetching doctors',
-      error: error.message
-    });
-  }
-});
 
 // @route   GET /api/doctors/:doctorId
 // @desc    Get specific doctor details
@@ -421,6 +224,204 @@ router.get('/my/dashboard', protect, async (req, res) => {  // FIXED: removed ex
     res.status(500).json({
       status: 'error',
       message: 'Error fetching dashboard data',
+      error: error.message
+    });
+  }
+});
+router.get('/debug/raw-data', async (req, res) => {
+  try {
+    // Check raw doctor documents
+    const doctors = await Doctor.find({}).limit(5);
+    const users = await User.find({ userType: 'doctor' }).limit(5);
+
+    // Check what verification statuses exist
+    const verificationStatuses = await Doctor.distinct('verificationStatus');
+
+    res.json({
+      status: 'success',
+      data: {
+        doctorsCount: await Doctor.countDocuments(),
+        doctorUsersCount: await User.countDocuments({ userType: 'doctor' }),
+        verificationStatuses: verificationStatuses,
+        sampleDoctors: doctors,
+        sampleUsers: users
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/', async (req, res) => {
+  try {
+    const {
+      specialization,
+      province,
+      district,
+      municipality,
+      isOnline,
+      language,
+      minRating = 0,
+      maxFee,
+      consultationType = 'video',
+      availableNow = false,
+      sortBy = 'averageRating',
+      sortOrder = 'desc',
+      page = 1,
+      limit = 12,
+      search
+    } = req.query;
+
+    // Build doctor filter
+    const doctorFilter = {
+    //   verificationStatus: 'verified'
+    };
+
+    if (specialization) {
+      doctorFilter.$or = [
+        { primarySpecialization: specialization },
+        { secondarySpecializations: { $in: [specialization] } }
+      ];
+    }
+
+    if (isOnline !== undefined) {
+      doctorFilter.isOnline = isOnline === 'true';
+    }
+
+    if (minRating > 0) {
+      doctorFilter.averageRating = { $gte: parseFloat(minRating) };
+    }
+
+    if (maxFee) {
+      doctorFilter[`consultationFee.${consultationType}`] = { $lte: parseInt(maxFee) };
+    }
+
+    if (language) {
+      doctorFilter.languagesSpoken = { $in: [language] };
+    }
+
+    if (availableNow === 'true') {
+      doctorFilter.isOnline = true;
+      // Add logic for current day/time availability
+      const now = new Date();
+      const currentDay = now.toLocaleDateString('en-US', { weekday: 'lowercase' });
+      const currentTime = now.toTimeString().slice(0, 5);
+
+      doctorFilter[`availability.${currentDay}.available`] = true;
+    }
+
+    // Build user match conditions (for the aggregation pipeline)
+    const userMatchConditions = {
+      'user.userType': 'doctor',
+      'user.isActive': true
+    };
+
+    if (province) userMatchConditions['user.address.province'] = province;
+    if (district) userMatchConditions['user.address.district'] = district;
+    if (municipality) userMatchConditions['user.address.municipality'] = municipality;
+
+    if (search) {
+      userMatchConditions.$or = [
+        { 'user.firstName': { $regex: search, $options: 'i' } },
+        { 'user.lastName': { $regex: search, $options: 'i' } },
+        { 'user.email': { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const sortDirection = sortOrder === 'desc' ? -1 : 1;
+
+    console.log('Doctor Filter:', doctorFilter);
+    console.log('User Match Conditions:', userMatchConditions);
+
+    // Aggregate query to join and filter
+    const doctors = await Doctor.aggregate([
+      { $match: doctorFilter },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'user'
+        }
+      },
+      { $unwind: '$user' },
+      { $match: userMatchConditions },
+      { $sort: { [sortBy]: sortDirection } },
+      { $skip: skip },
+      { $limit: parseInt(limit) },
+      {
+        $project: {
+          _id: 1,
+          userId: 1,
+          primarySpecialization: 1,
+          secondarySpecializations: 1,
+          totalExperience: 1,
+          consultationFee: 1,
+          averageRating: 1,
+          totalReviews: 1,
+          totalConsultations: 1,
+          isOnline: 1,
+          languagesSpoken: 1,
+          bio: 1,
+          availability: 1,
+          verificationStatus: 1,
+          'user.firstName': 1,
+          'user.lastName': 1,
+          'user.profilePicture': 1,
+          'user.address': 1,
+          currentWorkplace: 1
+        }
+      }
+    ]);
+
+    // Get total count for pagination (simplified count)
+    const totalCountResult = await Doctor.aggregate([
+      { $match: doctorFilter },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'user'
+        }
+      },
+      { $unwind: '$user' },
+      { $match: userMatchConditions },
+      { $count: "total" }
+    ]);
+
+    const totalDoctors = totalCountResult.length > 0 ? totalCountResult[0].total : 0;
+
+    console.log('Found doctors:', doctors.length);
+    console.log('Total doctors:', totalDoctors);
+
+    res.json({
+      status: 'success',
+      results: doctors.length,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalDoctors / parseInt(limit)),
+        totalDoctors,
+        hasNext: skip + doctors.length < totalDoctors,
+        hasPrev: parseInt(page) > 1
+      },
+      data: {
+        doctors
+      },
+      debug: {
+        doctorFilter,
+        userMatchConditions,
+        totalFound: doctors.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in doctors route:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Error fetching doctors',
       error: error.message
     });
   }

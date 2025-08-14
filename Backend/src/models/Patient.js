@@ -29,8 +29,8 @@ const patientSchema = new mongoose.Schema({
   // Medical History
   allergies: [{
     allergen: { type: String, required: true },
-    severity: { 
-      type: String, 
+    severity: {
+      type: String,
       enum: ['mild', 'moderate', 'severe'],
       default: 'mild'
     },
@@ -126,18 +126,18 @@ patientSchema.virtual('bmi').get(function() {
 // Calculate health score (basic implementation)
 patientSchema.virtual('healthScore').get(function() {
   let score = 85; // Base score
-  
+
   // Reduce score for chronic conditions
   if (this.chronicConditions && this.chronicConditions.length > 0) {
     score -= this.chronicConditions.length * 5;
   }
-  
+
   // Reduce score for severe allergies
   if (this.allergies) {
     const severeAllergies = this.allergies.filter(a => a.severity === 'severe');
     score -= severeAllergies.length * 3;
   }
-  
+
   // Add points for recent consultations (encourage regular checkups)
   if (this.lastConsultationDate) {
     const daysSinceLastConsultation = Math.floor(
@@ -149,14 +149,14 @@ patientSchema.virtual('healthScore').get(function() {
       score -= 10;
     }
   }
-  
+
   return Math.max(Math.min(score, 100), 0); // Keep between 0-100
 });
 
 // Indexes
-patientSchema.index({ userId: 1 });
-patientSchema.index({ bloodGroup: 1 });
-patientSchema.index({ createdAt: -1 });
+// patientSchema.index({ userId: 1 });
+// patientSchema.index({ bloodGroup: 1 });
+// patientSchema.index({ createdAt: -1 });
 
 const Patient = mongoose.model('Patient', patientSchema);
 export default Patient;
