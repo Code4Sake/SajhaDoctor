@@ -143,10 +143,10 @@ appointmentSchema.pre('save', function(next) {
 });
 
 // Indexes
-appointmentSchema.index({ patientId: 1, scheduledDateTime: -1 });
-appointmentSchema.index({ doctorId: 1, scheduledDateTime: -1 });
-appointmentSchema.index({ status: 1 });
-appointmentSchema.index({ appointmentId: 1 });
+// appointmentSchema.index({ patientId: 1, scheduledDateTime: -1 });
+// appointmentSchema.index({ doctorId: 1, scheduledDateTime: -1 });
+// appointmentSchema.index({ status: 1 });
+// appointmentSchema.index({ appointmentId: 1 });
 
 const Appointment = mongoose.model('Appointment', appointmentSchema, 'appointments');
 export default Appointment;

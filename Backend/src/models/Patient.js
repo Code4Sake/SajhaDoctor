@@ -1,8 +1,8 @@
-// models/Patient.js
+// models/Patient.js - Patient Model
 import mongoose from 'mongoose';
 
 const patientSchema = new mongoose.Schema({
-  // Reference to base User
+  // Reference to User
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -17,120 +17,146 @@ const patientSchema = new mongoose.Schema({
   },
   height: {
     type: Number, // in cm
-    min: 50,
-    max: 250
+    min: [50, 'Height must be at least 50 cm'],
+    max: [250, 'Height cannot exceed 250 cm']
   },
   weight: {
     type: Number, // in kg
-    min: 10,
-    max: 300
+    min: [10, 'Weight must be at least 10 kg'],
+    max: [500, 'Weight cannot exceed 500 kg']
   },
 
   // Medical History
   allergies: [{
-    allergen: String,
+    allergen: { type: String, required: true },
     severity: {
       type: String,
-      enum: ['mild', 'moderate', 'severe']
+      enum: ['mild', 'moderate', 'severe'],
+      default: 'mild'
     },
-    notes: String
+    description: String,
+    diagnosedDate: Date,
+    addedAt: { type: Date, default: Date.now }
   }],
 
   chronicConditions: [{
-    condition: String,
+    condition: { type: String, required: true },
     diagnosedDate: Date,
-    status: {
+    description: String,
+    currentStatus: {
       type: String,
-      enum: ['active', 'controlled', 'resolved']
+      enum: ['active', 'managed', 'resolved'],
+      default: 'active'
     },
-    medications: [String]
+    addedAt: { type: Date, default: Date.now }
   }],
 
   currentMedications: [{
-    medicationName: String,
+    medicationName: { type: String, required: true },
     dosage: String,
     frequency: String,
+    prescribedBy: String,
     startDate: Date,
-    prescribedBy: String
+    endDate: Date,
+    purpose: String,
+    addedAt: { type: Date, default: Date.now }
   }],
 
   // Emergency Contact
   emergencyContact: {
-    name: {
-      type: String,
-      required: false
-    },
+    name: String,
     relationship: String,
-    phoneNumber: {
-      type: String,
-      required: false,
-      match: [/^(\+977)?[0-9]{10}$/, 'Please provide a valid phone number']
-    },
+    phoneNumber: String,
     email: String
   },
 
-  // Insurance Information (Nepal context)
+  // Insurance Details
   insuranceDetails: {
-    hasInsurance: {
-      type: Boolean,
-      default: false
-    },
-    insuranceProvider: String,
+    hasInsurance: { type: Boolean, default: false },
+    provider: String,
     policyNumber: String,
-    validUntil: Date
+    coverageAmount: Number,
+    expiryDate: Date
   },
-
-  // Consultation History (references to consultations)
-  consultationHistory: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Consultation'
-  }],
 
   // Preferences
   preferredLanguage: {
     type: String,
-    enum: ['Nepali', 'English', 'Hindi', 'Maithili', 'Bhojpuri', 'Newari'],
-    default: 'Nepali'
+    enum: ['english', 'nepali', 'hindi'],
+    default: 'nepali'
   },
 
   // Health Goals
-  healthGoals: [String],
+  healthGoals: [{
+    goal: String,
+    targetDate: Date,
+    status: {
+      type: String,
+      enum: ['active', 'completed', 'paused'],
+      default: 'active'
+    },
+    addedAt: { type: Date, default: Date.now }
+  }],
 
-  // Created and Updated timestamps
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
-  }
+  // Dashboard Stats (calculated fields)
+  totalConsultations: { type: Number, default: 0 },
+  totalSpent: { type: Number, default: 0 },
+  lastConsultationDate: Date,
+
+  // Timestamps
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
 });
 
-// Update timestamp on save
+// Pre-save middleware
 patientSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   next();
 });
 
-// Virtual for BMI calculation
+// Calculate BMI
 patientSchema.virtual('bmi').get(function() {
-  if (this.weight && this.height) {
+  if (this.height && this.weight) {
     const heightInMeters = this.height / 100;
     return (this.weight / (heightInMeters * heightInMeters)).toFixed(1);
   }
   return null;
 });
 
-// Virtual for age calculation
-patientSchema.virtual('age').get(function() {
-  // This will be populated from User model
-  return null;
+// Calculate health score (basic implementation)
+patientSchema.virtual('healthScore').get(function() {
+  let score = 85; // Base score
+
+  // Reduce score for chronic conditions
+  if (this.chronicConditions && this.chronicConditions.length > 0) {
+    score -= this.chronicConditions.length * 5;
+  }
+
+  // Reduce score for severe allergies
+  if (this.allergies) {
+    const severeAllergies = this.allergies.filter(a => a.severity === 'severe');
+    score -= severeAllergies.length * 3;
+  }
+
+  // Add points for recent consultations (encourage regular checkups)
+  if (this.lastConsultationDate) {
+    const daysSinceLastConsultation = Math.floor(
+      (Date.now() - this.lastConsultationDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    if (daysSinceLastConsultation < 30) {
+      score += 5;
+    } else if (daysSinceLastConsultation > 180) {
+      score -= 10;
+    }
+  }
+
+  return Math.max(Math.min(score, 100), 0); // Keep between 0-100
 });
 
 // Indexes
-patientSchema.index({ userId: 1 });
-patientSchema.index({ 'emergencyContact.phoneNumber': 1 });
+// patientSchema.index({ userId: 1 });
+// patientSchema.index({ bloodGroup: 1 });
+// patientSchema.index({ createdAt: -1 });
 
-const Patient = mongoose.model('Patient', patientSchema, 'patients');
+const Patient = mongoose.model('Patient', patientSchema);
 export default Patient;

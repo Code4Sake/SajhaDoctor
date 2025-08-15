@@ -247,6 +247,9 @@ const signupPatient = catchAsync(async (req, res, next) => {
   } catch (err) {
     // Log the detailed error for debugging
     console.error('Error creating patient account:', err);
+    const savedDoctor = await Doctor.findById(newDoctor._id);
+console.log('Actually saved doctor:', savedDoctor);
+
 
     // If patient creation fails but user was created, clean up the user
     if (newUser && newUser._id) {
@@ -489,6 +492,8 @@ const signupDoctor = catchAsync(async (req, res, next) => {
 
     console.log('Creating doctor with data:', JSON.stringify(doctorData, null, 2));
     newDoctor = await Doctor.create(doctorData);
+    console.log("this is new one",newDoctor);
+
 
     console.log('Doctor created successfully. Checking saved availability...');
 

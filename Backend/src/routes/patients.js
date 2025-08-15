@@ -1,15 +1,16 @@
 // routes/patients.js - Patient Management Routes
 import express from 'express';
+import mongoose from 'mongoose';
 import Patient from '../models/Patient.js';
 import User from '../models/User.js';
-import { protect,} from '../middlewares/auth.js';
+import { protect } from '../middlewares/auth.js';
 
 const router = express.Router();
 
 // @route   GET /api/patients/profile
 // @desc    Get patient profile
 // @access  Private (Patient)
-router.get('/profile', protect), async (req, res) => {
+router.get('/profile', protect, async (req, res) => {
   try {
     const patient = await Patient.findOne({ userId: req.user.id })
       .populate('userId', 'firstName lastName email phoneNumber profilePicture address dateOfBirth gender');
@@ -24,7 +25,11 @@ router.get('/profile', protect), async (req, res) => {
     res.json({
       status: 'success',
       data: {
-        patient
+        patient: {
+          ...patient.toObject(),
+          bmi: patient.bmi,
+          healthScore: patient.healthScore
+        }
       }
     });
 
@@ -35,12 +40,12 @@ router.get('/profile', protect), async (req, res) => {
       error: error.message
     });
   }
-};
+});
 
 // @route   PATCH /api/patients/profile
 // @desc    Update patient profile
 // @access  Private (Patient)
-router.patch('/profile', protect), async (req, res) => {
+router.patch('/profile', protect, async (req, res) => {
   try {
     const patient = await Patient.findOne({ userId: req.user.id });
 
@@ -92,7 +97,11 @@ router.patch('/profile', protect), async (req, res) => {
       status: 'success',
       message: 'Profile updated successfully',
       data: {
-        patient: updatedPatient
+        patient: {
+          ...updatedPatient.toObject(),
+          bmi: updatedPatient.bmi,
+          healthScore: updatedPatient.healthScore
+        }
       }
     });
 
@@ -103,12 +112,12 @@ router.patch('/profile', protect), async (req, res) => {
       error: error.message
     });
   }
-};
+});
 
 // @route   GET /api/patients/dashboard
 // @desc    Get patient dashboard data
 // @access  Private (Patient)
-router.get('/dashboard', protect), async (req, res) => {
+router.get('/dashboard', protect, async (req, res) => {
   try {
     const patient = await Patient.findOne({ userId: req.user.id })
       .populate('userId', 'firstName lastName profilePicture');
@@ -120,100 +129,121 @@ router.get('/dashboard', protect), async (req, res) => {
       });
     }
 
-    // Import Appointment model dynamically
-    const { default: Appointment } = await import('../models/Appointment.js');
+    // Mock appointment data (replace with actual Appointment model when available)
+    const mockUpcomingAppointments = [
+      {
+        id: 1,
+        doctor: "Dr. Rajesh Sharma",
+        specialization: "Cardiologist",
+        date: "Today",
+        time: "2:30 PM",
+        type: "video",
+        status: "confirmed",
+        avatar: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=100&h=100&fit=crop&crop=face"
+      },
+      {
+        id: 2,
+        doctor: "Dr. Priya Thapa",
+        specialization: "General Medicine",
+        date: "Tomorrow",
+        time: "10:00 AM",
+        type: "audio",
+        status: "pending",
+        avatar: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=100&h=100&fit=crop&crop=face"
+      }
+    ];
 
-    // Get appointment statistics
-    const [
-      upcomingAppointments,
-      recentAppointments,
-      appointmentStats,
-      totalSpent
-    ] = await Promise.all([
-      // Upcoming appointments
-      Appointment.find({
-        patientId: req.user.id,
-        scheduledDateTime: { $gte: new Date() },
-        status: { $in: ['scheduled', 'confirmed'] }
-      })
-      .populate('doctorId', 'firstName lastName primarySpecialization profilePicture')
-      .sort({ scheduledDateTime: 1 })
-      .limit(5),
+    // Calculate stats
+    const stats = {
+      totalConsultations: patient.totalConsultations,
+      upcomingConsultations: mockUpcomingAppointments.length,
+      healthScore: patient.healthScore,
+      totalSpent: patient.totalSpent
+    };
 
-      // Recent completed appointments
-      Appointment.find({
-        patientId: req.user.id,
-        status: 'completed'
-      })
-      .populate('doctorId', 'firstName lastName primarySpecialization')
-      .sort({ scheduledDateTime: -1 })
-      .limit(3),
+    // Health summary
+    const healthSummary = {
+      bloodGroup: patient.bloodGroup || 'Not specified',
+      bmi: patient.bmi,
+      allergies: patient.allergies?.length || 0,
+      chronicConditions: patient.chronicConditions?.length || 0,
+      currentMedications: patient.currentMedications?.length || 0
+    };
 
-      // Appointment statistics
-      Appointment.aggregate([
-        { $match: { patientId: new mongoose.Types.ObjectId(req.user.id) } },
-        {
-          $group: {
-            _id: '$status',
-            count: { $sum: 1 }
-          }
-        }
-      ]),
-
-      // Total money spent
-      Appointment.aggregate([
-        {
-          $match: {
-            patientId: new mongoose.Types.ObjectId(req.user.id),
-            paymentStatus: { $in: ['paid', 'released'] }
-          }
-        },
-        {
-          $group: {
-            _id: null,
-            totalSpent: { $sum: '$consultationFee' }
-          }
-        }
-      ])
-    ]);
-
-    // Calculate BMI if height and weight are available
-    let bmi = null;
-    if (patient.height && patient.weight) {
-      const heightInMeters = patient.height / 100;
-      bmi = (patient.weight / (heightInMeters * heightInMeters)).toFixed(1);
-    }
+    // Recent activities (mock data - replace with actual activity tracking)
+    const recentActivities = [
+      {
+        id: 1,
+        type: 'consultation',
+        title: 'Video consultation completed',
+        subtitle: 'with Dr. Rajesh Sharma',
+        time: '2 hours ago',
+        icon: 'Video'
+      },
+      {
+        id: 2,
+        type: 'prescription',
+        title: 'E-prescription received',
+        subtitle: 'Medication for blood pressure',
+        time: 'Yesterday',
+        icon: 'Pill'
+      }
+    ];
 
     res.json({
       status: 'success',
       data: {
-        patient,
-        stats: {
-          totalConsultations: appointmentStats.reduce((sum, stat) => sum + stat.count, 0),
-          completedConsultations: appointmentStats.find(s => s._id === 'completed')?.count || 0,
-          upcomingConsultations: upcomingAppointments.length,
-          totalSpent: totalSpent[0]?.totalSpent || 0,
-          bmi: bmi ? parseFloat(bmi) : null
+        patient: {
+          ...patient.toObject(),
+          bmi: patient.bmi,
+          healthScore: patient.healthScore
         },
-        upcomingAppointments,
-        recentAppointments,
-        healthSummary: {
-          bloodGroup: patient.bloodGroup,
-          allergies: patient.allergies?.length || 0,
-          chronicConditions: patient.chronicConditions?.length || 0,
-          currentMedications: patient.currentMedications?.length || 0
-        }
+        stats,
+        upcomingAppointments: mockUpcomingAppointments,
+        healthSummary,
+        recentActivities,
+        quickStats: [
+          {
+            label: "Total Consultations",
+            value: stats.totalConsultations.toString(),
+            change: "+5 this month",
+            icon: "Activity",
+            color: "blue"
+          },
+          {
+            label: "Upcoming Appointments",
+            value: stats.upcomingConsultations.toString(),
+            change: "Next: Today 2:30 PM",
+            icon: "Calendar",
+            color: "green"
+          },
+          {
+            label: "Health Score",
+            value: `${stats.healthScore}%`,
+            change: "Good condition",
+            icon: "TrendingUp",
+            color: "purple"
+          },
+          {
+            label: "Saved Amount",
+            value: `₹${stats.totalSpent.toLocaleString()}`,
+            change: "vs hospital visits",
+            icon: "AlertCircle",
+            color: "orange"
+          }
+        ]
       }
     });
 
   } catch (error) {
+    console.error('Dashboard Error:', error);
     res.status(500).json({
       status: 'error',
       message: 'Error fetching patient dashboard',
       error: error.message
     });
   }
-};
+});
 
 // @route   POST /api/patients/medical-history
 // @desc    Add medical history entry
@@ -254,7 +284,11 @@ router.post('/medical-history', protect, async (req, res) => {
       status: 'success',
       message: `${type} added successfully`,
       data: {
-        patient
+        patient: {
+          ...patient.toObject(),
+          bmi: patient.bmi,
+          healthScore: patient.healthScore
+        }
       }
     });
 

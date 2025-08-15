@@ -163,10 +163,10 @@ userSchema.methods.createPasswordResetToken = function() {
 };
 
 // Indexes
-userSchema.index({ email: 1 });
-userSchema.index({ phoneNumber: 1 });
-userSchema.index({ googleId: 1 });
-userSchema.index({ userType: 1 });
+// userSchema.index({ email: 1 });
+// userSchema.index({ phoneNumber: 1 });
+// userSchema.index({ googleId: 1 });
+// userSchema.index({ userType: 1 });
 
 const User = mongoose.model('User', userSchema, 'users');
 export default User;
