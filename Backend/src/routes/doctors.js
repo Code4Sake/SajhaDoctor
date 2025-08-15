@@ -100,7 +100,7 @@ router.patch('/toggle-online', protect, async (req, res) => {  // FIXED: removed
 
     if (!doctor) {
       return res.status(404).json({
-        status: 'error',
+        status: 'error',  
         message: 'Doctor profile not found'
       });
     }

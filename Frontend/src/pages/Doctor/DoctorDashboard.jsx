@@ -831,7 +831,7 @@ const DoctorDashboard = () => {
                 onClick={() => handleTabChange(nav.key)}
                 className={`relative flex flex-col items-center space-y-1 px-3 py-2 rounded-2xl transition-all duration-300 min-w-0 ${
                   activeTab === nav.key 
-                    ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transform scale-105' 
+                  ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transform scale-105' 
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                 }`}
               >

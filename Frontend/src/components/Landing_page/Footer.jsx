@@ -85,7 +85,7 @@ const Footer = () => {
     { name: 'Terms of Service', href: '#terms' },
     { name: 'Medical Disclaimer', href: '#disclaimer' },
     { name: 'Cookie Policy', href: '#cookies' },
-    { name: 'HIPAA Compliance', href: '#hipaa', certified: true },
+    { name: 'Data Protection', href: '#data-protection', certified: true },
     { name: 'Data Security', href: '#security', certified: true }
   ];
 
@@ -102,35 +102,35 @@ const Footer = () => {
     { 
       name: 'Facebook', 
       icon: Facebook, 
-      href: 'https://facebook.com/healthcarenepal', 
+      href: 'https://facebook.com/SajhaDoctor', 
       color: 'hover:text-blue-600',
       followers: '25.4K'
     },
     { 
       name: 'Twitter', 
       icon: Twitter, 
-      href: 'https://twitter.com/healthcarenepal', 
+      href: 'https://twitter.com/SajhaDoctor', 
       color: 'hover:text-blue-400',
       followers: '18.2K'
     },
     { 
       name: 'Instagram', 
       icon: Instagram, 
-      href: 'https://instagram.com/healthcarenepal', 
+      href: 'https://instagram.com/SajhaDoctor', 
       color: 'hover:text-pink-600',
       followers: '32.1K'
     },
     { 
       name: 'LinkedIn', 
       icon: Linkedin, 
-      href: 'https://linkedin.com/company/healthcarenepal', 
+      href: 'https://linkedin.com/company/SajhaDoctor', 
       color: 'hover:text-blue-700',
       followers: '12.8K'
     },
     { 
       name: 'YouTube', 
       icon: Youtube, 
-      href: 'https://youtube.com/healthcarenepal', 
+      href: 'https://youtube.com/SajhaDoctor', 
       color: 'hover:text-red-600',
       followers: '45.6K'
     }
@@ -139,7 +139,7 @@ const Footer = () => {
   const certifications = [
     { 
       icon: Shield, 
-      text: 'HIPAA Compliant', 
+      text: 'Secure Platform', 
       description: 'Healthcare data protection',
       verified: true 
     },
@@ -256,7 +256,7 @@ const Footer = () => {
                 </div>
                 <div>
                   <h3 className="text-3xl font-bold">
-                    HealthCare<span className="text-teal-400">Nepal</span>
+                    Sajha<span className="text-teal-400">Doctor</span>
                   </h3>
                   <p className="text-gray-400 font-medium">Virtual Care Platform</p>
                 </div>
@@ -283,7 +283,7 @@ const Footer = () => {
                     <Mail className="w-5 h-5 text-teal-400 group-hover:text-white" />
                   </div>
                   <div>
-                    <span className="text-gray-300 group-hover:text-white transition-colors">support@healthcarenepal.com</span>
+                    <span className="text-gray-300 group-hover:text-white transition-colors">support@SajhaDoctor.com</span>
                     <p className="text-sm text-gray-500">General inquiries</p>
                   </div>
                 </div>
@@ -519,7 +519,7 @@ const Footer = () => {
             
             {/* Copyright */}
             <div className="text-gray-400">
-              <p className="font-medium">© 2025 HealthCareNepal. All rights reserved.</p>
+              <p className="font-medium">© 2025 SajhaDoctor. All rights reserved.</p>
               <p className="text-xs mt-1">Registered Healthcare Technology Provider • License #HTN-2025-001</p>
             </div>
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { ArrowRight, Play, Shield, Award, Users, CheckCircle, Star, Activity, Heart, Clock, MapPin, Zap } from 'lucide-react';
 import { Link } from 'react-router';
+import { Stethoscope, UserCheck } from 'lucide-react';
 
 const Hero = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -120,11 +121,75 @@ const Hero = () => {
         }
       `}</style>
 
+      {/* Top Header Bar - Clean Layout */}
+    <div className="absolute top-6 left-0 right-0 z-50 bg-transparent">
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 top-5">
+          <div className="flex justify-between items-center">
+            
+           <div className="flex items-center space-x-3 -ml-16">
+
+                <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-lg flex items-center justify-center shadow-lg">
+                  <Stethoscope className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-white">
+                    Sajha<span className="text-teal-400">Doctor</span>
+                  </h1>
+                  <p className="text-xs text-emerald-300 font-medium">Virtual Care Platform</p>
+                </div>
+              </div>
+           
+            {/* Center - Trust Indicators */}
+            <div className="hidden lg:flex items-center space-x-8">
+              {trustIndicators.map((indicator, index) => (
+                <div
+                  key={index}
+                  className="flex items-center space-x-2 text-white/90 hover:text-white transition-all duration-300"
+                >
+                  <indicator.icon className={`w-4 h-4 ${indicator.color}`} />
+                  <span className="text-sm font-medium">{indicator.text}</span>
+                </div>
+              ))}
+            </div>
+<Link to="/home/login" className="hidden lg:flex items-center space-x-3 text-white hover:text-emerald-300 transition-all duration-300">
+<div className="flex items-center ml-4">
+  <button className="group relative overflow-hidden bg-gradient-to-r from-emerald-500/20 via-teal-500/20 to-blue-500/20 hover:from-emerald-500/40 hover:via-teal-500/40 hover:to-blue-500/40 backdrop-blur-lg border border-white/30 hover:border-white/50 text-white/90 hover:text-white px-6 py-3 rounded-xl transition-all duration-500 transform hover:scale-105 shadow-lg hover:shadow-emerald-500/20 cursor-pointer">
+    
+    {/* Animated background shimmer */}
+    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+    
+    {/* Glowing border effect */}
+    <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-emerald-400/20 via-teal-400/20 to-blue-400/20 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500 -z-10"></div>
+    
+    {/* Button content */}
+    <div className="relative flex items-center space-x-3 z-10">
+      <UserCheck className="w-5 h-5 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 filter group-hover:drop-shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
+      <span className="text-sm font-bold tracking-wide">Sign In</span>
+      
+      {/* Animated arrow that appears on hover */}
+      <div className="w-0 group-hover:w-5 overflow-hidden transition-all duration-300">
+        <ArrowRight className="w-4 h-4 transform translate-x-0 group-hover:translate-x-1 transition-transform duration-300 opacity-0 group-hover:opacity-100" />
+      </div>
+    </div>
+    
+    {/* Floating pulse dot */}
+    <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full animate-pulse opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+    
+    {/* Bottom glow line */}
+    <div className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-emerald-400 to-teal-400 group-hover:w-full transition-all duration-500"></div>
+  </button>
+</div>
+</Link>
+          </div>
+        </div>
+      </div>
+
       <section
         ref={heroRef}
         id="home"
-        className="relative min-h-screen flex items-center justify-center overflow-hidden pt-6 lg:pt-8"
-        aria-label="Nepal TeleHealth - Virtual healthcare services across Nepal"
+        className="relative min-h-screen flex items-center justify-center overflow-hidden pt-14"
+        aria-label="SajhaDoctor - Virtual healthcare services across Nepal"
       >
         {/* Professional Background */}
         <div className="absolute inset-0 z-0">
@@ -204,7 +269,7 @@ const Hero = () => {
           <div className="bg-gradient-to-r hidden md:block from-blue-500/20 to-indigo-500/20 backdrop-blur-lg rounded-2xl p-4 lg:p-6 border border-blue-300/30 shadow-2xl hover:from-blue-500/30 hover:to-indigo-500/30 transition-all duration-300 animate-float-delayed max-w-xs">
             <div className="flex items-center space-x-3">
               <div className="w-4 h-4 bg-blue-400 rounded-full animate-pulse flex-shrink-0"></div>
-              <div >
+              <div>
                 <span className="text-white font-bold text-lg lg:text-xl block leading-tight">
                   Average 2 min wait
                 </span>
@@ -220,41 +285,27 @@ const Hero = () => {
         <div className="relative z-30 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center py-16 lg:py-20">
           <div className="max-w-6xl mx-auto">
 
-            {/* Trust Indicators - Enhanced */}
-            <div className={`hidden sm:flex justify-center items-center flex-wrap gap-3 lg:gap-6 mb-8 lg:mb-10 transition-all duration-1000 transform ${
-              isVisible ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'
-            }`} style={{ transitionDelay: '200ms' }}>
-              {trustIndicators.map((indicator, index) => (
-                <div
-                  key={index}
-                  className="flex items-center space-x-2 text-white/90 hover:text-white transition-all duration-300 transform hover:scale-105 px-3 py-2 rounded-lg hover:bg-white/10 backdrop-blur-sm"
-                >
-                  <indicator.icon className={`w-4 h-4 ${indicator.color}`} />
-                  <span className="text-xs lg:text-sm font-medium">{indicator.text}</span>
-                </div>
-              ))}
-            </div>
-
             {/* Main Heading - Enhanced */}
-            <div className={`mb-6 transition-all duration-1000 transform ${
+            <div className={`mb-8 transition-all duration-1000 transform ${
               isVisible ? 'translate-y-0 opacity-100' : 'translate-y-16 opacity-0'
             }`} style={{ transitionDelay: '400ms' }}>
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black text-white mb-4 leading-tight tracking-tight">
-                <span className="block">24/7 Virtual Doctor</span>
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black text-white mb-6 leading-tight tracking-tight">
+                <span className="block">Nepal's Most Trusted</span>
                 <span className="block mt-2">
                   <span className="bg-gradient-to-r from-emerald-300 via-teal-300 to-blue-300 bg-clip-text text-transparent">
-                    Visits in Nepal
+                    Digital Healthcare
                   </span>
                 </span>
+                <span className="block mt-2 text-3xl sm:text-4xl lg:text-5xl xl:text-6xl">Platform</span>
               </h1>
 
-              <p className="text-lg sm:text-xl lg:text-2xl text-gray-200/90 font-light leading-relaxed max-w-4xl mx-auto mb-4">
-                Experience the future of healthcare with AI-powered consultations and expert medical care
+              <p className="text-lg sm:text-xl lg:text-2xl text-gray-200/90 font-light leading-relaxed max-w-4xl mx-auto mb-6">
+                Connect with board-certified doctors instantly. Get expert medical consultations, prescriptions, and health advice from the comfort of your home.
               </p>
 
-              <div className="flex items-center justify-center space-x-2 text-emerald-300">
+              <div className="flex items-center justify-center space-x-3 text-emerald-300 mb-2">
                 <Zap className="w-5 h-5" />
-                <span className="text-base font-semibold">Average 2-minute wait time • Available 24/7</span>
+                <span className="text-base font-semibold">24/7 Availability • Instant Connection • Nepal Medical Council Verified</span>
               </div>
             </div>
 
@@ -265,25 +316,30 @@ const Hero = () => {
               {keyFeatures.map((feature, index) => (
                 <div
                   key={index}
-                  className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2 hover:bg-white/20 transition-all duration-300 transform hover:scale-105 group"
+                  className="flex items-center space-x-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-5 py-3 hover:bg-white/20 transition-all duration-300 transform hover:scale-105 group"
                 >
-                  <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${feature.gradient}`}></div>
+                  <div className={`w-3 h-3 rounded-full bg-gradient-to-r ${feature.gradient}`}></div>
                   <feature.icon className="w-4 h-4 text-white/80 group-hover:text-white transition-colors duration-300" />
-                  <span className="text-white/90 group-hover:text-white font-medium text-sm transition-colors duration-300">{feature.text}</span>
+                  <div className="text-left">
+                    <span className="text-white/90 group-hover:text-white font-semibold text-sm transition-colors duration-300 block">{feature.text}</span>
+                    <span className="text-white/60 group-hover:text-white/80 text-xs transition-colors duration-300">{feature.desc}</span>
+                  </div>
                 </div>
               ))}
             </div>
 
+
             {/* CTA Buttons - Enhanced */}
-            <div className={`flex flex-col sm:flex-row gap-4 lg:gap-6 justify-center items-center mb-12 lg:mb-16 transition-all duration-1000 transform ${
+           <div className={`flex flex-col sm:flex-row gap-4 lg:gap-6 justify-center items-center mb-12 lg:mb-16 transition-all duration-1000 transform ${
               isVisible ? 'translate-y-0 opacity-100' : 'translate-y-16 opacity-0'
             }`} style={{ transitionDelay: '800ms' }}>
+
 
               {/* Primary CTA */}
                <Link to="/home">
               <button
                 className="group relative bg-gradient-to-r from-emerald-500 via-teal-500 to-blue-500 hover:from-emerald-600 hover:via-teal-600 hover:to-blue-600 text-white px-8 py-4 lg:px-12 lg:py-5 rounded-xl text-lg font-bold transition-all duration-300 transform hover:scale-105 shadow-2xl hover:shadow-emerald-500/30 w-full sm:w-auto flex items-center justify-center space-x-3 cursor-pointer"
-                aria-label="Start consultation with Nepal TeleHealth"
+                aria-label="Start consultation with SajhaDoctor"
               >
                 <Heart className="w-5 h-5" />
                 <span className="block text-lg font-semibold">Get Started Now</span>
@@ -301,7 +357,7 @@ const Hero = () => {
               <button
                 onClick={() => scrollToSection('#how-it-works')}
                 className="group flex items-center space-x-3 text-white hover:text-emerald-200 transition-all duration-300 w-full sm:w-auto justify-center cursor-pointer"
-                aria-label="Watch Nepal TeleHealth demo"
+                aria-label="Watch SajhaDoctor demo"
               >
                 <div className="bg-white/15 hover:bg-white/25 backdrop-blur-sm rounded-full p-3 transition-all duration-300 group-hover:scale-110 border border-white/20">
                   <Play className="text-white w-5 h-5" fill="currentColor" />

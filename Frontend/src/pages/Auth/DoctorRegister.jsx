@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+
+import ScheduleSelector from './ScheduleSelector';
 import { 
   Eye, 
   EyeOff, 
@@ -10,15 +12,495 @@ import {
   Stethoscope,
   Brain,
   CheckCircle,
-  Clock,
   Shield,
   Award,
   Users,
   Calendar,
-  Building
+  Building,Clock, 
+  Plus, 
+  X, 
+  AlertCircle,
+  Info
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
+const handleSlotSelect = (slotData) => {
+  // Handle slot selection logic here
+  console.log('Slot selected:', slotData);
+};
+const AvailabilityManager = ({ formData, setFormData, errors }) => {
+  const [selectedDay, setSelectedDay] = useState('monday');
+  const handleSlotSelect = (slotData) => {
+  console.log('Slot selected:', slotData);
+  // This function can be used if you decide to use ScheduleSelector later
+};
+  const days = [
+    { key: 'monday', label: 'Monday', short: 'Mon' },
+    { key: 'tuesday', label: 'Tuesday', short: 'Tue' },
+    { key: 'wednesday', label: 'Wednesday', short: 'Wed' },
+    { key: 'thursday', label: 'Thursday', short: 'Thu' },
+    { key: 'friday', label: 'Friday', short: 'Fri' },
+    { key: 'saturday', label: 'Saturday', short: 'Sat' },
+    { key: 'sunday', label: 'Sunday', short: 'Sun' }
+  ];
+
+  const timeSlots = [
+    '06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30',
+    '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
+    '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
+    '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30',
+    '22:00', '22:30', '23:00'
+  ];
+
+  const toggleDayAvailability = (day) => {
+    setFormData(prev => ({
+      ...prev,
+      availability: {
+        ...prev.availability,
+        [day]: {
+          ...prev.availability[day],
+          available: !prev.availability[day].available,
+          slots: !prev.availability[day].available ? prev.availability[day].slots : []
+        }
+      }
+    }));
+  };
+
+  const addTimeSlot = (day) => {
+    const defaultStart = '09:00';
+    const defaultEnd = '17:00';
+    
+    setFormData(prev => ({
+      ...prev,
+      availability: {
+        ...prev.availability,
+        [day]: {
+          ...prev.availability[day],
+          slots: [...prev.availability[day].slots, { start: defaultStart, end: defaultEnd }]
+        }
+      }
+    }));
+  };
+
+  const removeTimeSlot = (day, index) => {
+    setFormData(prev => ({
+      ...prev,
+      availability: {
+        ...prev.availability,
+        [day]: {
+          ...prev.availability[day],
+          slots: prev.availability[day].slots.filter((_, i) => i !== index)
+        }
+      }
+    }));
+  };
+
+  const updateTimeSlot = (day, index, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      availability: {
+        ...prev.availability,
+        [day]: {
+          ...prev.availability[day],
+          slots: prev.availability[day].slots.map((slot, i) => 
+            i === index ? { ...slot, [field]: value } : slot
+          )
+        }
+      }
+    }));
+  };
+
+  const validateTimeSlot = (start, end) => {
+    if (!start || !end) return false;
+    return start < end;
+  };
+
+  const getTotalAvailableHours = () => {
+  let total = 0;
+  if (formData.availability) {
+    Object.values(formData.availability).forEach(day => {
+      if (day && day.available && day.slots) {
+        day.slots.forEach(slot => {
+          if (slot.start && slot.end) {
+            const startTime = new Date(`1970-01-01T${slot.start}:00`);
+            const endTime = new Date(`1970-01-01T${slot.end}:00`);
+            const diff = (endTime - startTime) / (1000 * 60 * 60);
+            total += diff > 0 ? diff : 0;
+          }
+        });
+      }
+    });
+  }
+  return total;
+};
+
+  const getAvailableDaysCount = () => {
+  if (!formData.availability) return 0;
+  return Object.values(formData.availability).filter(day => day && day.available).length;
+};
+
+  const copyToAllDays = (sourceDay) => {
+    const sourceSchedule = formData.availability[sourceDay];
+    if (!sourceSchedule.available) return;
+
+    setFormData(prev => {
+      const newAvailability = { ...prev.availability };
+      days.forEach(day => {
+        if (day.key !== sourceDay) {
+          newAvailability[day.key] = {
+            available: true,
+            slots: [...sourceSchedule.slots]
+          };
+        }
+      });
+      return {
+        ...prev,
+        availability: newAvailability
+      };
+    });
+  };
+
+  const setQuickSchedule = (type) => {
+    let schedule = {};
+    
+    switch (type) {
+      case 'business':
+        days.forEach(day => {
+          const isWeekend = day.key === 'saturday' || day.key === 'sunday';
+          schedule[day.key] = {
+            available: !isWeekend,
+            slots: !isWeekend ? [{ start: '09:00', end: '17:00' }] : []
+          };
+        });
+        break;
+      case 'flexible':
+        days.forEach(day => {
+          schedule[day.key] = {
+            available: true,
+            slots: [
+              { start: '09:00', end: '12:00' },
+              { start: '14:00', end: '18:00' }
+            ]
+          };
+        });
+        break;
+      case 'evening':
+        days.forEach(day => {
+          const isWeekend = day.key === 'saturday' || day.key === 'sunday';
+          schedule[day.key] = {
+            available: true,
+            slots: isWeekend 
+              ? [{ start: '10:00', end: '16:00' }]
+              : [{ start: '17:00', end: '21:00' }]
+          };
+        });
+        break;
+      default:
+        return;
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      availability: schedule
+    }));
+  };
+
+  return (
+    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-8 rounded-3xl border border-indigo-200 shadow-lg">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-2 flex items-center">
+            <Calendar className="w-7 h-7 text-indigo-600 mr-3" />
+            Consultation Availability
+          </h3>
+          <p className="text-gray-600 font-medium">
+            Set your consultation hours to help patients book appointments
+          </p>
+        </div>
+        
+        {/* Quick Stats */}
+        <div className="hidden md:flex space-x-6">
+          <div className="text-center bg-white/70 backdrop-blur-sm rounded-2xl p-4 border border-white/50">
+            <div className="text-2xl font-bold text-indigo-600">{getAvailableDaysCount()}</div>
+            <div className="text-sm text-gray-600 font-medium">Available Days</div>
+          </div>
+          <div className="text-center bg-white/70 backdrop-blur-sm rounded-2xl p-4 border border-white/50">
+            <div className="text-2xl font-bold text-purple-600">{getTotalAvailableHours().toFixed(1)}h</div>
+            <div className="text-sm text-gray-600 font-medium">Total Hours</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Schedule Templates */}
+      <div className="mb-8">
+        <div className="flex items-center mb-4">
+          <Info className="w-5 h-5 text-blue-500 mr-2" />
+          <span className="text-sm font-semibold text-gray-700">Quick Schedule Templates:</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button
+            type="button"
+            onClick={() => setQuickSchedule('business')}
+            className="p-4 bg-white rounded-2xl border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all duration-300 text-left group"
+          >
+            <div className="font-bold text-gray-900 group-hover:text-blue-700 mb-1">Business Hours</div>
+            <div className="text-sm text-gray-600">Mon-Fri, 9 AM - 5 PM</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setQuickSchedule('flexible')}
+            className="p-4 bg-white rounded-2xl border-2 border-gray-200 hover:border-green-400 hover:bg-green-50 transition-all duration-300 text-left group"
+          >
+            <div className="font-bold text-gray-900 group-hover:text-green-700 mb-1">Flexible Schedule</div>
+            <div className="text-sm text-gray-600">All days, Morning & Evening</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setQuickSchedule('evening')}
+            className="p-4 bg-white rounded-2xl border-2 border-gray-200 hover:border-purple-400 hover:bg-purple-50 transition-all duration-300 text-left group"
+          >
+            <div className="font-bold text-gray-900 group-hover:text-purple-700 mb-1">Evening Clinic</div>
+            <div className="text-sm text-gray-600">Weekdays 5-9 PM, Weekends 10-4 PM</div>
+          </button>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-5 gap-8">
+        {/* Day Selection */}
+        <div className="lg:col-span-2">
+          <h4 className="text-lg font-bold text-gray-800 mb-4">Select Day</h4>
+          <div className="space-y-2">
+            {days.map(day => {
+              const dayData = formData.availability[day.key];
+              const isSelected = selectedDay === day.key;
+              const hasSlots = dayData.available && dayData.slots.length > 0;
+              
+              return (
+                <div
+                  key={day.key}
+                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all duration-300 ${
+                    isSelected 
+                      ? 'border-indigo-400 bg-indigo-50 shadow-md' 
+                      : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+                  }`}
+                  onClick={() => setSelectedDay(day.key)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-3 h-3 rounded-full ${
+                        dayData.available ? 'bg-green-500' : 'bg-gray-300'
+                      }`} />
+                      <span className={`font-bold ${
+                        isSelected ? 'text-indigo-700' : 'text-gray-700'
+                      }`}>
+                        {day.label}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {hasSlots && (
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
+                          {dayData.slots.length} slot{dayData.slots.length !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                        dayData.available 
+                          ? 'border-green-500 bg-green-500' 
+                          : 'border-gray-300'
+                      }`}>
+                        {dayData.available && <CheckCircle className="w-4 h-4 text-white" />}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {dayData.available && dayData.slots.length > 0 && (
+                    <div className="mt-2 text-xs text-gray-600">
+                      {dayData.slots.map((slot, idx) => (
+                        <span key={idx} className="mr-2">
+                          {slot.start} - {slot.end}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Time Slot Management */}
+        <div className="lg:col-span-3">
+          <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h4 className="text-lg font-bold text-gray-800 flex items-center">
+                <Clock className="w-5 h-5 text-indigo-600 mr-2" />
+                {days.find(d => d.key === selectedDay)?.label} Schedule
+              </h4>
+              
+              <div className="flex items-center space-x-3">
+                {formData.availability[selectedDay].available && formData.availability[selectedDay].slots.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => copyToAllDays(selectedDay)}
+                    className="text-sm bg-blue-100 text-blue-700 px-4 py-2 rounded-xl font-medium hover:bg-blue-200 transition-all duration-300"
+                  >
+                    Copy to All Days
+                  </button>
+                )}
+                
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.availability[selectedDay].available}
+                    onChange={() => toggleDayAvailability(selectedDay)}
+                    className="w-5 h-5 text-indigo-600 border-2 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="font-medium text-gray-700">Available</span>
+                </label>
+              </div>
+            </div>
+
+            {formData.availability[selectedDay].available ? (
+              <div className="space-y-4">
+                {formData.availability[selectedDay].slots.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <Clock className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="font-medium">No time slots added yet</p>
+                    <p className="text-sm">Click "Add Time Slot" to get started</p>
+                  </div>
+                )}
+
+                {formData.availability[selectedDay].slots.map((slot, index) => {
+                  const isValid = validateTimeSlot(slot.start, slot.end);
+                  
+                  return (
+                    <div
+                      key={index}
+                      className={`p-4 rounded-2xl border-2 transition-all duration-300 ${
+                        isValid 
+                          ? 'border-green-200 bg-green-50' 
+                          : 'border-red-200 bg-red-50'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className="flex-1 grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                              Start Time
+                            </label>
+                            <select
+                              value={slot.start}
+                              onChange={(e) => updateTimeSlot(selectedDay, index, 'start', e.target.value)}
+                              className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl font-medium focus:outline-none focus:border-indigo-400 transition-all duration-300"
+                            >
+                              <option value="">Select start time</option>
+                              {timeSlots.map(time => (
+                                <option key={time} value={time}>{time}</option>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                              End Time
+                            </label>
+                            <select
+                              value={slot.end}
+                              onChange={(e) => updateTimeSlot(selectedDay, index, 'end', e.target.value)}
+                              className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl font-medium focus:outline-none focus:border-indigo-400 transition-all duration-300"
+                            >
+                              <option value="">Select end time</option>
+                              {timeSlots.map(time => (
+                                <option key={time} value={time}>{time}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          {isValid ? (
+                            <CheckCircle className="w-6 h-6 text-green-500" />
+                          ) : (
+                            <AlertCircle className="w-6 h-6 text-red-500" />
+                          )}
+                          
+                          <button
+                            type="button"
+                            onClick={() => removeTimeSlot(selectedDay, index)}
+                            className="p-2 text-red-500 hover:bg-red-100 rounded-xl transition-all duration-300"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {!isValid && slot.start && slot.end && (
+                        <div className="mt-2 text-sm text-red-600 font-medium flex items-center">
+                          <AlertCircle className="w-4 h-4 mr-1" />
+                          End time must be after start time
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                <button
+                  type="button"
+                  onClick={() => addTimeSlot(selectedDay)}
+                  className="w-full py-4 border-2 border-dashed border-indigo-300 rounded-2xl text-indigo-600 font-bold hover:border-indigo-400 hover:bg-indigo-50 transition-all duration-300 flex items-center justify-center space-x-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span>Add Time Slot</span>
+                </button>
+              </div>
+            ) : (
+              <div className="text-center py-12 text-gray-400">
+                <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <p className="text-lg font-medium">Day Not Available</p>
+                <p className="text-sm">Enable this day to set consultation hours</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Summary */}
+      <div className="mt-8 p-6 bg-white rounded-2xl border border-gray-200">
+        <h4 className="text-lg font-bold text-gray-800 mb-4">Availability Summary</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="text-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+            <div className="text-2xl font-bold text-blue-600">{getAvailableDaysCount()}</div>
+            <div className="text-sm text-blue-700 font-medium">Available Days</div>
+          </div>
+          <div className="text-center p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
+            <div className="text-2xl font-bold text-green-600">{getTotalAvailableHours().toFixed(1)}h</div>
+            <div className="text-sm text-green-700 font-medium">Total Hours/Week</div>
+          </div>
+          <div className="text-center p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200">
+            <div className="text-2xl font-bold text-purple-600">
+              {formData.availability ? Object.values(formData.availability).reduce((total, day) => total + (day && day.slots ? day.slots.length : 0), 0) : 0}
+            </div>
+            <div className="text-sm text-purple-700 font-medium">Time Slots</div>
+          </div>
+          <div className="text-center p-4 bg-gradient-to-r from-orange-50 to-red-50 rounded-xl border border-orange-200">
+            <div className="text-2xl font-bold text-orange-600">
+              {getTotalAvailableHours() > 0 ? '✓' : '✗'}
+            </div>
+            <div className="text-sm text-orange-700 font-medium">Ready to Accept</div>
+          </div>
+        </div>
+        
+        {getTotalAvailableHours() === 0 && (
+          <div className="mt-4 p-3 bg-yellow-100 border border-yellow-300 rounded-xl flex items-center">
+            <AlertCircle className="w-5 h-5 text-yellow-600 mr-2" />
+            <span className="text-sm text-yellow-700 font-medium">
+              Please set at least one time slot to start accepting appointments
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 const DoctorRegister = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
@@ -38,6 +520,7 @@ const DoctorRegister = () => {
       province: '',
       district: '',
       municipality: ''
+      
     },
     
     // Doctor specific fields
@@ -53,15 +536,15 @@ const DoctorRegister = () => {
       chat: 200,
       inPerson: 800
     },
-    availability: {
-      monday: { available: false, slots: [] },
-      tuesday: { available: false, slots: [] },
-      wednesday: { available: false, slots: [] },
-      thursday: { available: false, slots: [] },
-      friday: { available: false, slots: [] },
-      saturday: { available: false, slots: [] },
-      sunday: { available: false, slots: [] }
-    },
+   availability: {
+  monday: { available: false, slots: [] },
+  tuesday: { available: false, slots: [] },
+  wednesday: { available: false, slots: [] },
+  thursday: { available: false, slots: [] },
+  friday: { available: false, slots: [] },
+  saturday: { available: false, slots: [] },
+  sunday: { available: false, slots: [] }
+},
     currentWorkplace: [{
       hospitalName: '',
       position: '',
@@ -184,13 +667,14 @@ const DoctorRegister = () => {
       console.log('Submitting doctor registration:', apiData);
 
       // Make API call
-      const response = await fetch('/api/auth/signup/doctor', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(apiData),
-      });
+      const response = await fetch('http://localhost:8000/api/auth/signup/doctor', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify(apiData),
+});
+
 
       const result = await response.json();
 
@@ -304,8 +788,8 @@ const DoctorRegister = () => {
                 </div>
               </div>
               <div>
-                <div className="text-2xl font-black">HealthCare<span className="text-emerald-200">Nepal</span></div>
-                <div className="text-emerald-200 text-sm font-medium">Nepal's Premier Virtual Care Platform</div>
+                <div className="text-2xl font-black">Sajha<span className="text-emerald-200">Doctor</span></div>
+                <div className="text-emerald-200 text-sm font-medium">Virtual Care Platform</div>
               </div>
             </div>
 
@@ -851,7 +1335,11 @@ const DoctorRegister = () => {
                 {errors.terms && <p className="text-red-500 text-sm mt-1 font-medium">{errors.terms}</p>}
               </div>
             </div>
-
+   <AvailabilityManager 
+  formData={formData}
+  setFormData={setFormData}
+  errors={errors}
+/>
             {/* Submit Button */}
             <button
               type="submit"

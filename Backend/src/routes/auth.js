@@ -1,13 +1,36 @@
-// routes/auth.js - Authentication Routes with Patient Profile Creation
+// routes/auth.js - Combined Authentication Routes
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import rateLimit from 'express-rate-limit';
+import passport from '../config/passport.js';
+import { protect, restrictTo, requireVerified } from '../middlewares/auth.js';
 import User from '../models/User.js';
 import Patient from '../models/Patient.js';
-// Import Doctor model when needed
-// import Doctor from '../models/Doctor.js';
+import Doctor from '../models/Doctor.js';
 
 const router = express.Router();
+
+// Rate limiting for auth routes
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 requests per windowMs for auth routes
+  message: {
+    status: 'error',
+    message: 'Too many authentication attempts, please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const passwordResetLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3, // Limit password reset attempts
+  message: {
+    status: 'error',
+    message: 'Too many password reset attempts, please try again later.'
+  },
+});
 
 // Helper function to create JWT token
 const createToken = (id) => {
@@ -19,7 +42,7 @@ const createToken = (id) => {
 // Helper function to send token response
 const createSendToken = (user, statusCode, res, message = 'Success') => {
   const token = createToken(user._id);
-
+  
   const cookieOptions = {
     expires: new Date(
       Date.now() + (process.env.JWT_COOKIE_EXPIRES_IN || 7) * 24 * 60 * 60 * 1000
@@ -44,10 +67,25 @@ const createSendToken = (user, statusCode, res, message = 'Success') => {
   });
 };
 
-// @route   POST /api/auth/signup/patient
-// @desc    Register a new patient
-// @access  Public
-router.post('/signup/patient', async (req, res) => {
+// Route Handlers
+const signup = async (req, res) => {
+  try {
+    // Generic signup logic - redirect to specific signup routes
+    res.status(400).json({
+      status: 'error',
+      message: 'Please use specific signup endpoints',
+      errors: ['Use /signup/patient or /signup/doctor for registration']
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+const signupPatient = async (req, res) => {
   try {
     const {
       firstName,
@@ -146,12 +184,9 @@ router.post('/signup/patient', async (req, res) => {
       error: error.message
     });
   }
-});
+};
 
-// @route   POST /api/auth/signup/doctor
-// @desc    Register a new doctor
-// @access  Public
-router.post('/signup/doctor', async (req, res) => {
+const signupDoctor = async (req, res) => {
   try {
     const {
       firstName,
@@ -165,16 +200,16 @@ router.post('/signup/doctor', async (req, res) => {
       licenseNumber,
       nmc_registration,
       primarySpecialization,
-      experience
+      totalExperience
     } = req.body;
 
     // Validate required fields for doctors
-    if (!firstName || !lastName || !email || !phoneNumber || !password ||
-        !licenseNumber || !primarySpecialization) {
+    if (!firstName || !lastName || !email || !phoneNumber || !password || 
+        !licenseNumber || !nmc_registration || !primarySpecialization) {
       return res.status(400).json({
         status: 'error',
         message: 'Please provide all required fields',
-        errors: ['First name, last name, email, phone number, password, license number and specialization are required']
+        errors: ['First name, last name, email, phone number, password, license number, NMC registration and specialization are required']
       });
     }
 
@@ -202,19 +237,36 @@ router.post('/signup/doctor', async (req, res) => {
       dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
       gender,
       address,
-      isVerified: false // Doctors need manual verification
+      isVerified: false
     });
 
-    // Note: Doctor profile creation would go here
-    // This requires the Doctor model which wasn't provided
-    // const newDoctor = await Doctor.create({
-    //   userId: newUser._id,
-    //   licenseNumber,
-    //   nmc_registration,
-    //   primarySpecialization,
-    //   experience: parseInt(experience) || 0,
-    //   isVerified: false // Doctors need manual verification
-    // });
+    console.log('✅ User created:', newUser._id);
+
+    // Create doctor profile with required fields
+    const newDoctor = await Doctor.create({
+      userId: newUser._id,
+      licenseNumber,
+      nmc_registration,
+      primarySpecialization,
+      totalExperience: parseInt(totalExperience) || 0,
+      
+      // Add required education array
+      education: [{
+        degree: 'MBBS',
+        institution: 'To be verified',
+        yearOfCompletion: new Date().getFullYear()
+      }],
+      
+      // Add required currentWorkplace array  
+      currentWorkplace: [{
+        hospitalName: 'To be verified',
+        isCurrentlyWorking: true
+      }],
+      
+      verificationStatus: 'pending'
+    });
+
+    console.log('✅ Doctor created:', newDoctor._id);
 
     res.status(201).json({
       status: 'success',
@@ -227,31 +279,26 @@ router.post('/signup/doctor', async (req, res) => {
           email: newUser.email,
           userType: newUser.userType,
           isVerified: newUser.isVerified
+        },
+        doctor: {
+          id: newDoctor._id,
+          licenseNumber: newDoctor.licenseNumber,
+          primarySpecialization: newDoctor.primarySpecialization
         }
       }
     });
 
   } catch (error) {
-    console.error('Doctor Registration Error:', error);
-
-    // Handle validation errors
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(val => val.message);
-      return res.status(400).json({
-        status: 'error',
-        message: 'Validation failed',
-        errors
-      });
-    }
-
-    // Handle duplicate key error
-    if (error.code === 11000) {
-      const field = Object.keys(error.keyValue)[0];
-      return res.status(400).json({
-        status: 'error',
-        message: 'Duplicate field error',
-        errors: [`${field} already exists`]
-      });
+    console.error('❌ Doctor Registration Error:', error);
+    
+    // If user was created but doctor failed, clean up
+    if (error.message && req.body.email) {
+      try {
+        await User.findOneAndDelete({ email: req.body.email, userType: 'doctor' });
+        console.log('🧹 Cleaned up orphaned user record');
+      } catch (cleanupError) {
+        console.error('Failed to cleanup user:', cleanupError);
+      }
     }
 
     res.status(500).json({
@@ -260,12 +307,9 @@ router.post('/signup/doctor', async (req, res) => {
       error: error.message
     });
   }
-});
+};
 
-// @route   POST /api/auth/login
-// @desc    Login user
-// @access  Public
-router.post('/login', async (req, res) => {
+const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -305,7 +349,7 @@ router.post('/login', async (req, res) => {
     // If this is a patient, ensure patient profile exists
     if (user.userType === 'patient') {
       let patient = await Patient.findOne({ userId: user._id });
-
+      
       if (!patient) {
         // Create patient profile if it doesn't exist
         patient = await Patient.create({
@@ -326,27 +370,21 @@ router.post('/login', async (req, res) => {
       error: error.message
     });
   }
-});
+};
 
-// @route   POST /api/auth/logout
-// @desc    Logout user
-// @access  Private
-router.post('/logout', (req, res) => {
+const logout = (req, res) => {
   res.cookie('jwt', 'loggedout', {
     expires: new Date(Date.now() + 10 * 1000),
     httpOnly: true
   });
-
+  
   res.status(200).json({
     status: 'success',
     message: 'Logged out successfully'
   });
-});
+};
 
-// @route   GET /api/auth/me
-// @desc    Get current user profile
-// @access  Private
-router.get('/me', async (req, res) => {
+const getMe = async (req, res) => {
   try {
     // Extract token
     let token;
@@ -368,12 +406,12 @@ router.get('/me', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // Check if user still exists
-    const currentUser = await User.findById(decoded.id);    
+    const currentUser = await User.findById(decoded.id);
     if (!currentUser) {
       return res.status(401).json({
         status: 'error',
         message: 'User no longer exists',
-        errors: ['The user belonging to this token no longer exists ']
+        errors: ['The user belonging to this token no longer exists']
       });
     }
 
@@ -401,6 +439,85 @@ router.get('/me', async (req, res) => {
       errors: ['Please log in again']
     });
   }
-});
+};
+
+// Placeholder functions for routes that need to be implemented
+const verifyEmail = async (req, res) => {
+  res.status(501).json({
+    status: 'error',
+    message: 'Email verification not implemented yet'
+  });
+};
+
+const forgotPassword = async (req, res) => {
+  res.status(501).json({
+    status: 'error',
+    message: 'Forgot password not implemented yet'
+  });
+};
+
+const resetPassword = async (req, res) => {
+  res.status(501).json({
+    status: 'error',
+    message: 'Reset password not implemented yet'
+  });
+};
+
+const updatePassword = async (req, res) => {
+  res.status(501).json({
+    status: 'error',
+    message: 'Update password not implemented yet'
+  });
+};
+
+const resendVerificationEmail = async (req, res) => {
+  res.status(501).json({
+    status: 'error',
+    message: 'Resend verification email not implemented yet'
+  });
+};
+
+const googleSuccess = async (req, res) => {
+  res.status(501).json({
+    status: 'error',
+    message: 'Google OAuth success not implemented yet'
+  });
+};
+
+const googleFailure = async (req, res) => {
+  res.status(501).json({
+    status: 'error',
+    message: 'Google OAuth failure not implemented yet'
+  });
+};
+
+// Authentication routes
+router.post('/signup', authLimiter, signup);
+router.post('/signup/patient', authLimiter, signupPatient);
+router.post('/signup/doctor', authLimiter, signupDoctor);
+router.post('/login', authLimiter, login);
+router.post('/logout', logout);
+router.get('/me', protect, getMe);
+
+// Email verification
+router.get('/verify-email/:token', verifyEmail);
+router.post('/resend-verification', authLimiter, resendVerificationEmail);
+
+// Password reset
+router.post('/forgot-password', passwordResetLimiter, forgotPassword);
+router.patch('/reset-password/:token', passwordResetLimiter, resetPassword);
+router.patch('/update-password', protect, updatePassword);
+
+// Google OAuth routes
+router.get('/google',
+  passport.authenticate('google', { scope: ['profile', 'email'] })
+);
+
+router.get('/google/callback',
+  passport.authenticate('google', { failureRedirect: '/auth/google/failure' }),
+  googleSuccess
+);
+
+router.get('/google/failure', googleFailure);
 
 export default router;

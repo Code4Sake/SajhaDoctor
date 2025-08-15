@@ -1,11 +1,23 @@
 // src/utils/api.js - Enhanced API configuration and helper functions
 import axios from 'axios';
 
-// In-memory token storage
-let authToken = null;
-export const getAuthToken = () => authToken;
-export const setAuthToken = (token) => { authToken = token; };
-export const clearAuthToken = () => { authToken = null; };
+// Token management functions
+let authToken = localStorage.getItem('authToken') || null; // Load from localStorage on init
+
+export const getAuthToken = () => authToken || localStorage.getItem('authToken');
+export const setAuthToken = (token) => { 
+  authToken = token; 
+  if (token) {
+    localStorage.setItem('authToken', token); 
+  } else {
+    localStorage.removeItem('authToken');
+  }
+};
+export const clearAuthToken = () => { 
+  authToken = null; 
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('currentUser');
+};
 
 // Create axios instance with default configuration
 const api = axios.create({
@@ -21,6 +33,7 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = getAuthToken();
+    console.log('API Request:', config.method?.toUpperCase(), config.url, token ? 'with token' : 'no token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -45,11 +58,12 @@ api.interceptors.response.use(
 
     // Handle 401 errors (unauthorized)
     if (error.response?.status === 401) {
+      console.log('401 Unauthorized - clearing token and redirecting');
       clearAuthToken();
       
       // Only redirect if we're not already on the login page
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+      if (window.location.pathname !== '/home/Login') {
+        window.location.href = '/home/Login';
       }
     }
 
@@ -70,7 +84,7 @@ const formatApiResponse = (response) => {
   if (response.data?.status === 'success') {
     return {
       success: true,
-      data: response.data.data,
+      data: response.data.data || response.data,
       message: response.data.message,
     };
   } else {
@@ -114,14 +128,34 @@ const handleApiError = (error) => {
 
 // Auth API functions
 export const authAPI = {
-  registerPatient: async (patientData) => {
-    try {
-      const response = await api.post('/api/auth/signup/patient', patientData);
-      return formatApiResponse(response);
-    } catch (error) {
-      return handleApiError(error);
-    }
-  },
+registerPatient: async (patientData) => {
+  try {
+    console.log('=== API Call Debug ===');
+    console.log('Endpoint: /api/auth/signup/patient');
+    console.log('Method: POST');
+    console.log('Data being sent:', patientData);
+    console.log('Headers:', {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${getAuthToken() || 'No token'}`
+    });
+    
+    const response = await api.post('/api/auth/signup/patient', patientData);
+    
+    console.log('=== API Response Debug ===');
+    console.log('Status:', response.status);
+    console.log('Response data:', response.data);
+    
+    return formatApiResponse(response);
+  } catch (error) {
+    console.error('=== API Error Debug ===');
+    console.error('Error status:', error.response?.status);
+    console.error('Error data:', error.response?.data);
+    console.error('Error headers:', error.response?.headers);
+    console.error('Full error:', error);
+    
+    return handleApiError(error);
+  }
+},
 
   registerDoctor: async (doctorData) => {
     try {
@@ -134,9 +168,20 @@ export const authAPI = {
 
   login: async (credentials) => {
     try {
+      console.log('Making login request to:', '/api/auth/login');
       const response = await api.post('/api/auth/login', credentials);
+      console.log('Login response received:', response.status, response.data);
+      
+      // Handle successful login and store token
+      if (response.data?.token || response.data?.data?.token) {
+        const token = response.data.token || response.data.data.token;
+        setAuthToken(token);
+        console.log('Token saved successfully');
+      }
+      
       return formatApiResponse(response);
     } catch (error) {
+      console.error('Login error:', error);
       return handleApiError(error);
     }
   },
@@ -237,7 +282,7 @@ export const patientAPI = {
   },
 };
 
-// Doctor API functions (placeholder for future implementation)
+// Doctor API functions
 export const doctorAPI = {
   getProfile: async () => {
     try {
@@ -259,9 +304,11 @@ export const doctorAPI = {
 
   getDashboard: async () => {
     try {
+      console.log('Making dashboard request with token:', getAuthToken() ? 'present' : 'missing');
       const response = await api.get('/api/doctors/my/dashboard');
       return formatApiResponse(response);
     } catch (error) {
+      console.error('Dashboard request failed:', error);
       return handleApiError(error);
     }
   },
@@ -276,7 +323,7 @@ export const doctorAPI = {
   },
 };
 
-// Appointment API functions (placeholder for future implementation)
+// Appointment API functions
 export const appointmentAPI = {
   bookAppointment: async (appointmentData) => {
     try {
@@ -289,9 +336,11 @@ export const appointmentAPI = {
 
   getMyAppointments: async () => {
     try {
+      console.log('Making appointments request with token:', getAuthToken() ? 'present' : 'missing');
       const response = await api.get('/api/appointments/my-appointments');
       return formatApiResponse(response);
     } catch (error) {
+      console.error('Appointments request failed:', error);
       return handleApiError(error);
     }
   },
@@ -333,7 +382,7 @@ export const appointmentAPI = {
   },
 };
 
-// Search API functions (placeholder for future implementation)
+// Search API functions
 export const searchAPI = {
   searchDoctors: async (searchParams) => {
     try {
@@ -466,8 +515,6 @@ export const utils = {
     };
   },
 };
-
-
 
 // Export default axios instance for custom use
 export { handleApiError };

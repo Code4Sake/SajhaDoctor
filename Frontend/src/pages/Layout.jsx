@@ -38,65 +38,22 @@ const Layout = ({ children, currentPage, isAuthenticated, userType, onNavigate, 
               <Heart className="w-6 h-6 lg:w-7 lg:h-7 text-white" />
             </div>
             <div>
-              <h1 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">NepalCare</h1>
-              <p className="text-xs lg:text-sm text-gray-500 font-medium">Healthcare at home</p>
+              <h1 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">SajhaDoctor</h1>
+              <p className="text-xs lg:text-sm text-gray-500 font-medium">Virtual Care Platform</p>
             </div>
           </div>
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center space-x-8">
             <div className="relative group">
-              <button className="flex items-center space-x-1 font-semibold text-gray-700 hover:text-emerald-600 transition-all duration-300 py-2 cursor-pointer">
-                <span>Services</span>
-                <ChevronDown className="w-4 h-4 group-hover:rotate-180 transition-transform duration-300" />
-              </button>
+              
               <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
                 <div className="p-3">
-                  <button onClick={() => handleNavigate('general-care')} className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-emerald-50 hover:to-teal-50 hover:text-emerald-700 rounded-xl transition-all duration-200 cursor-pointer">
-                    <div className="flex items-center space-x-3">
-                      <Stethoscope className="w-5 h-5 text-emerald-500" />
-                      <div>
-                        <div className="font-semibold">General Medical Care</div>
-                        <div className="text-xs text-gray-500">Common illnesses & checkups</div>
-                      </div>
-                    </div>
-                  </button>
-                  <button onClick={() => handleNavigate('mental-health')} className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:text-blue-700 rounded-xl transition-all duration-200 cursor-pointer">
-                    <div className="flex items-center space-x-3">
-                      <Heart className="w-5 h-5 text-blue-500" />
-                      <div>
-                        <div className="font-semibold">Mental Health</div>
-                        <div className="text-xs text-gray-500">Therapy & counseling</div>
-                      </div>
-                    </div>
-                  </button>
-                  <button onClick={() => handleNavigate('emergency')} className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 hover:text-red-700 rounded-xl transition-all duration-200 cursor-pointer">
-                    <div className="flex items-center space-x-3">
-                      <Phone className="w-5 h-5 text-red-500" />
-                      <div>
-                        <div className="font-semibold">Emergency Consultation</div>
-                        <div className="text-xs text-gray-500">Urgent medical care</div>
-                      </div>
-                    </div>
-                  </button>
-                  <button onClick={() => handleNavigate('specialists')} className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50 hover:text-purple-700 rounded-xl transition-all duration-200 cursor-pointer">
-                    <div className="flex items-center space-x-3">
-                      <Users className="w-5 h-5 text-purple-500" />
-                      <div>
-                        <div className="font-semibold">Specialist Care</div>
-                        <div className="text-xs text-gray-500">Expert medical opinions</div>
-                      </div>
-                    </div>
-                  </button>
+                  
                 </div>
               </div>
             </div>
-            <button onClick={() => handleNavigate('how-it-works')} className="font-semibold text-gray-700 hover:text-emerald-600 transition-colors duration-300 cursor-pointer">How It Works</button>
-            {isAuthenticated && (
-              <button onClick={() => handleNavigate('doctors')} className="font-semibold text-gray-700 hover:text-emerald-600 transition-colors duration-300 cursor-pointer">Find Doctors</button>
-            )}
-            <button onClick={() => handleNavigate('about')} className="font-semibold text-gray-700 hover:text-emerald-600 transition-colors duration-300 cursor-pointer">About Us</button>
-            
+          
             <div className="flex items-center space-x-4 ml-8">
               {isAuthenticated ? (
                 <div className="flex items-center space-x-4">
@@ -159,13 +116,7 @@ const Layout = ({ children, currentPage, isAuthenticated, userType, onNavigate, 
           <div className="lg:hidden absolute top-full left-0 right-0 bg-white/95 backdrop-blur-lg border-b border-gray-200 shadow-xl">
             <div className="container mx-auto px-4 py-6 space-y-4">
               <div>
-                <button
-                  onClick={() => setIsServicesOpen(!isServicesOpen)}
-                  className="w-full flex items-center justify-between py-3 text-left font-semibold text-gray-700 hover:text-emerald-600 transition-colors duration-300 cursor-pointer"
-                >
-                  Services
-                  <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isServicesOpen ? 'rotate-180' : ''}`} />
-                </button>
+                
                 {isServicesOpen && (
                   <div className="pl-4 space-y-2 mt-2">
                     <button onClick={() => handleNavigate('general-care')} className="block py-2 text-sm text-gray-600 hover:text-emerald-600 transition-colors duration-300 cursor-pointer">General Medical Care</button>

@@ -86,7 +86,7 @@ const HowItWorks = () => {
         "ML-powered diagnostic assistance",
         "Multi-language symptom processing",
         "Real-time health risk assessment",
-        "HIPAA-compliant data protection"
+        "Check real-time availability"
       ],
       metrics: { accuracy: "94%", languages: "2+", processing: "<30s" }
     },
@@ -378,7 +378,7 @@ const HowItWorks = () => {
             <div className="flex justify-center items-center space-x-8 mt-8 text-sm text-gray-500">
               <div className="flex items-center">
                 <Shield className="w-4 h-4 mr-2" />
-                HIPAA Compliant
+                Secure Platform
               </div>
               <div className="flex items-center">
                 <Star className="w-4 h-4 mr-2" />

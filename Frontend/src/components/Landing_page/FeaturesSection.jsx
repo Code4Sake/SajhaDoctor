@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { MessageCircle, Brain, MapPin, Clock, Shield, Smartphone, ArrowRight, CheckCircle, Star } from 'lucide-react';
+import { MessageCircle, Brain, MapPin, Clock, Shield, Smartphone, ArrowRight, CheckCircle, Star, Lock } from 'lucide-react';
 
 const FeaturesSection = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -32,7 +32,7 @@ const FeaturesSection = () => {
     {
       icon: MessageCircle,
       title: "Fast Online Consultations",
-      description: "Connect with licensed doctors within minutes through secure video calls or chat. Available 24/7 for non-emergency consultations with instant booking.",
+      description: "Connect with Nepal Medical Council verified doctors within minutes through secure video calls or chat. Available 24/7 for non-emergency consultations with instant booking.",
       color: "from-emerald-500 to-teal-600",
       bgColor: "bg-emerald-50",
       iconColor: "text-emerald-600",
@@ -53,14 +53,14 @@ const FeaturesSection = () => {
     },
     {
       icon: MapPin,
-      title: "Nearby Doctor Matching",
-      description: "Find qualified healthcare providers in your area or opt for virtual consultations. Filter by specialty, language, experience, and patient ratings.",
+      title: "Nationwide Doctor Network",
+      description: "Access qualified healthcare providers across all 77 districts of Nepal. Filter by specialty, language (Nepali, English, Hindi), experience, and patient ratings.",
       color: "from-purple-500 to-pink-600",
       bgColor: "bg-purple-50",
       iconColor: "text-purple-600",
       hoverBg: "group-hover:bg-purple-100",
       delay: "500ms",
-      badge: "Smart Match"
+      badge: "All Nepal"
     }
   ];
 
@@ -73,9 +73,9 @@ const FeaturesSection = () => {
       bgColor: "bg-orange-50"
     },
     {
-      icon: Shield,
-      title: "HIPAA Compliant",
-      description: "Your medical data is secure and private",
+      icon: Lock,
+      title: "Data Privacy Protected",
+      description: "Your medical data is encrypted and secure",
       iconColor: "text-purple-500",
       bgColor: "bg-purple-50"
     },
@@ -89,7 +89,7 @@ const FeaturesSection = () => {
   ];
 
   const stats = [
-    { number: "500+", label: "Licensed Doctors", icon: CheckCircle },
+    { number: "500+", label: "NMC Licensed Doctors", icon: CheckCircle },
     { number: "50M+", label: "Consultations", icon: Star },
     { number: "99.9%", label: "Uptime", icon: Shield }
   ];
@@ -229,31 +229,7 @@ const FeaturesSection = () => {
           </div>
         </div>
 
-        {/* Enhanced Bottom CTA */}
-        <div className={`text-center mt-16 lg:mt-20 transition-all duration-700 transform ${
-          isVisible ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'
-        }`} style={{ transitionDelay: '900ms' }}>
-          <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 rounded-3xl p-8 lg:p-12 text-white relative overflow-hidden">
-            {/* Background Pattern */}
-            <div className="absolute inset-0 opacity-10">
-              <div className="absolute inset-0" style={{
-                backgroundImage: `radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.2) 0%, transparent 50%),
-                                 radial-gradient(circle at 70% 70%, rgba(255, 255, 255, 0.1) 0%, transparent 50%)`
-              }}></div>
-            </div>
-            
-            <div className="relative z-10">
-              <h3 className="text-2xl lg:text-3xl font-bold mb-4">Ready to Transform Your Healthcare Experience?</h3>
-              <p className="text-emerald-100 mb-8 text-lg max-w-2xl mx-auto">
-                Join thousands of satisfied patients who have made healthcare more accessible and convenient
-              </p>
-              <button className="inline-flex items-center bg-white text-emerald-600 hover:text-emerald-700 px-8 py-4 lg:px-10 lg:py-5 rounded-2xl font-bold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl cursor-pointer group">
-                <span className="text-lg">Explore All Services</span>
-                <ArrowRight className="w-6 h-6 ml-3 group-hover:translate-x-1 transition-transform duration-300" />
-              </button>
-            </div>
-          </div>
-        </div>
+       
       </div>
 
       {/* Floating Elements */}
