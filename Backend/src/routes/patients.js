@@ -226,7 +226,7 @@ router.get('/dashboard', protect, async (req, res) => {
           },
           {
             label: "Saved Amount",
-            value: `₹${stats.totalSpent.toLocaleString()}`,
+            value: `Rs. ${stats.totalSpent.toLocaleString()}`,
             change: "vs hospital visits",
             icon: "AlertCircle",
             color: "orange"
