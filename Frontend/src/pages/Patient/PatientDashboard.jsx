@@ -24,20 +24,30 @@ import {
   Settings as SettingsIcon,
   Home,
 } from "lucide-react";
-import { Settings,LogOut,X } from "lucide-react";
-import { patientAPI, utils } from '../../utils/api';
+import { Settings, LogOut, X } from "lucide-react";
+import { useAuth } from '../Auth/AuthContext';
+import { getPatientDashboard } from '../../utils/firestoreAPI';
 
 
 // Sidebar Component
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const links = [
     { label: "Home", to: "/home/PatientDashboard", icon: Home },
     { label: "Appointments", to: "/home/PatientDashboard/Appointment", icon: Calendar },
     { label: "Find Doctors", to: "/home/PatientDashboard/FindDoctors", icon: Stethoscope },
     { label: "Settings", to: "/home/PatientDashboard/Settings", icon: Settings },
-    { label: "Logout", to: "/logout", icon: LogOut },
+    { label: "Logout", to: "#logout", icon: LogOut, action: async () => {
+      try {
+        await logout();
+        navigate('/login');
+      } catch (e) {
+        console.error('Logout failed', e);
+      }
+    } },
   ];
 
   return (
@@ -58,7 +68,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       </div>
       <nav className="mt-6">
         <ul className="flex flex-col space-y-2 px-4">
-          {links.map(({ label, to, icon: Icon }) => (
+          {links.map(({ label, to, icon: Icon, action }) => (
             <li key={to}>
               <Link
                 to={to}
@@ -67,7 +77,13 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                     ? "bg-blue-100 text-blue-700 font-semibold"
                     : "text-gray-700 hover:bg-blue-100 hover:text-blue-700"
                 }`}
-                onClick={toggleSidebar}
+                onClick={(e) => {
+                  toggleSidebar();
+                  if (action) {
+                    e.preventDefault();
+                    action();
+                  }
+                }}
               >
                 <Icon className="w-5 h-5 mr-3" /> {label}
               </Link>
@@ -312,28 +328,26 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const { user, profile, isAuthenticated, logout } = useAuth();
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
-  // Fetch dashboard data
+  // Fetch dashboard data from Firestore
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Check if user is authenticated
-      if (!utils.isAuthenticated()) {
-        navigate('/login');
+      if (!isAuthenticated || !user) {
+        navigate('/home/Login');
         return;
       }
 
-      // Fetch dashboard data
-      const response = await patientAPI.getDashboard();
-      
+      const response = await getPatientDashboard(user.uid);
       if (response.success) {
         setDashboardData(response.data);
       } else {
-        setError(response.error?.message || 'Failed to load dashboard data');
+        setError(response.error || 'Failed to load dashboard data');
       }
     } catch (err) {
       console.error('Dashboard fetch error:', err);
@@ -344,34 +358,41 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    if (isAuthenticated && user) {
+      fetchDashboardData();
+    } else if (!isAuthenticated) {
+      // Wait for auth to initialize (loading state)
+      const timer = setTimeout(() => {
+        if (!isAuthenticated) navigate('/home/Login');
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, user]);
 
   const handleQuickAction = (action) => {
-    console.log(`Quick action: ${action}`);
-    // Handle navigation based on action
     switch (action) {
       case 'find-doctor':
         navigate('/home/PatientDashboard/FindDoctors');
         break;
       case 'prescriptions':
-        // Navigate to prescriptions page when implemented
+        navigate('/home/PatientDashboard/Prescriptions');
         break;
       case 'video-call':
-        // Handle video call functionality
         break;
       case 'alerts':
-        // Navigate to alerts/notifications page
         break;
       default:
-        console.log('Unknown action:', action);
+        break;
     }
   };
 
   const handleJoinAppointment = (appointment) => {
     console.log(`Joining appointment with ${appointment.doctor}`);
-    // Handle appointment joining logic
-    // This would typically open a video/audio call interface
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/home/Login');
   };
 
   if (loading) {
@@ -393,7 +414,7 @@ const Dashboard = () => {
       <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
       
       <div className="flex flex-col flex-1 overflow-auto pb-16">
-        <Header toggleSidebar={toggleSidebar} user={patient?.userId} />
+        <Header toggleSidebar={toggleSidebar} user={patient} />
 
         <main className="p-3 lg:p-6 space-y-4 lg:space-y-8 overflow-auto">
           {/* Enhanced Welcome Section */}
@@ -404,7 +425,7 @@ const Dashboard = () => {
             
             <div className="relative z-10">
               <h2 className="text-2xl lg:text-4xl font-bold mb-2 lg:mb-4">
-                Welcome back, {patient?.userId?.firstName || 'Patient'}! 👋
+                Welcome back, {patient?.firstName || user?.displayName?.split(' ')[0] || 'Patient'}! 👋
               </h2>
               <p className="text-blue-100 mb-4 lg:mb-8 text-sm lg:text-lg">Your health is our priority. How can we help you today?</p>
               

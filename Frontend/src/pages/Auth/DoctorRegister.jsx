@@ -1,1384 +1,359 @@
 import React, { useState } from 'react';
-
-import ScheduleSelector from './ScheduleSelector';
-import { 
-  Eye, 
-  EyeOff, 
-  Mail, 
-  Lock, 
-  User, 
-  Phone, 
-  MapPin,
-  Stethoscope,
-  Brain,
-  CheckCircle,
-  Shield,
-  Award,
-  Users,
-  Calendar,
-  Building,Clock, 
-  Plus, 
-  X, 
-  AlertCircle,
-  Info
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Eye, EyeOff, Mail, Lock, User, Phone, Stethoscope, Shield,
+  CheckCircle, ArrowRight, ArrowLeft, ChevronDown,
+  GraduationCap, Building2, CreditCard, FileText, Camera
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
+import { useAuth } from './AuthContext';
 
-const handleSlotSelect = (slotData) => {
-  // Handle slot selection logic here
-  console.log('Slot selected:', slotData);
-};
-const AvailabilityManager = ({ formData, setFormData, errors }) => {
-  const [selectedDay, setSelectedDay] = useState('monday');
-  const handleSlotSelect = (slotData) => {
-  console.log('Slot selected:', slotData);
-  // This function can be used if you decide to use ScheduleSelector later
-};
-  const days = [
-    { key: 'monday', label: 'Monday', short: 'Mon' },
-    { key: 'tuesday', label: 'Tuesday', short: 'Tue' },
-    { key: 'wednesday', label: 'Wednesday', short: 'Wed' },
-    { key: 'thursday', label: 'Thursday', short: 'Thu' },
-    { key: 'friday', label: 'Friday', short: 'Fri' },
-    { key: 'saturday', label: 'Saturday', short: 'Sat' },
-    { key: 'sunday', label: 'Sunday', short: 'Sun' }
-  ];
-
-  const timeSlots = [
-    '06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30',
-    '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
-    '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
-    '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30',
-    '22:00', '22:30', '23:00'
-  ];
-
-  const toggleDayAvailability = (day) => {
-    setFormData(prev => ({
-      ...prev,
-      availability: {
-        ...prev.availability,
-        [day]: {
-          ...prev.availability[day],
-          available: !prev.availability[day].available,
-          slots: !prev.availability[day].available ? prev.availability[day].slots : []
-        }
-      }
-    }));
-  };
-
-  const addTimeSlot = (day) => {
-    const defaultStart = '09:00';
-    const defaultEnd = '17:00';
-    
-    setFormData(prev => ({
-      ...prev,
-      availability: {
-        ...prev.availability,
-        [day]: {
-          ...prev.availability[day],
-          slots: [...prev.availability[day].slots, { start: defaultStart, end: defaultEnd }]
-        }
-      }
-    }));
-  };
-
-  const removeTimeSlot = (day, index) => {
-    setFormData(prev => ({
-      ...prev,
-      availability: {
-        ...prev.availability,
-        [day]: {
-          ...prev.availability[day],
-          slots: prev.availability[day].slots.filter((_, i) => i !== index)
-        }
-      }
-    }));
-  };
-
-  const updateTimeSlot = (day, index, field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      availability: {
-        ...prev.availability,
-        [day]: {
-          ...prev.availability[day],
-          slots: prev.availability[day].slots.map((slot, i) => 
-            i === index ? { ...slot, [field]: value } : slot
-          )
-        }
-      }
-    }));
-  };
-
-  const validateTimeSlot = (start, end) => {
-    if (!start || !end) return false;
-    return start < end;
-  };
-
-  const getTotalAvailableHours = () => {
-  let total = 0;
-  if (formData.availability) {
-    Object.values(formData.availability).forEach(day => {
-      if (day && day.available && day.slots) {
-        day.slots.forEach(slot => {
-          if (slot.start && slot.end) {
-            const startTime = new Date(`1970-01-01T${slot.start}:00`);
-            const endTime = new Date(`1970-01-01T${slot.end}:00`);
-            const diff = (endTime - startTime) / (1000 * 60 * 60);
-            total += diff > 0 ? diff : 0;
-          }
-        });
-      }
-    });
-  }
-  return total;
-};
-
-  const getAvailableDaysCount = () => {
-  if (!formData.availability) return 0;
-  return Object.values(formData.availability).filter(day => day && day.available).length;
-};
-
-  const copyToAllDays = (sourceDay) => {
-    const sourceSchedule = formData.availability[sourceDay];
-    if (!sourceSchedule.available) return;
-
-    setFormData(prev => {
-      const newAvailability = { ...prev.availability };
-      days.forEach(day => {
-        if (day.key !== sourceDay) {
-          newAvailability[day.key] = {
-            available: true,
-            slots: [...sourceSchedule.slots]
-          };
-        }
-      });
-      return {
-        ...prev,
-        availability: newAvailability
-      };
-    });
-  };
-
-  const setQuickSchedule = (type) => {
-    let schedule = {};
-    
-    switch (type) {
-      case 'business':
-        days.forEach(day => {
-          const isWeekend = day.key === 'saturday' || day.key === 'sunday';
-          schedule[day.key] = {
-            available: !isWeekend,
-            slots: !isWeekend ? [{ start: '09:00', end: '17:00' }] : []
-          };
-        });
-        break;
-      case 'flexible':
-        days.forEach(day => {
-          schedule[day.key] = {
-            available: true,
-            slots: [
-              { start: '09:00', end: '12:00' },
-              { start: '14:00', end: '18:00' }
-            ]
-          };
-        });
-        break;
-      case 'evening':
-        days.forEach(day => {
-          const isWeekend = day.key === 'saturday' || day.key === 'sunday';
-          schedule[day.key] = {
-            available: true,
-            slots: isWeekend 
-              ? [{ start: '10:00', end: '16:00' }]
-              : [{ start: '17:00', end: '21:00' }]
-          };
-        });
-        break;
-      default:
-        return;
-    }
-
-    setFormData(prev => ({
-      ...prev,
-      availability: schedule
-    }));
-  };
-
+/* ═══ Animated Input ═══ */
+const Input = ({ icon: Icon, error, label, required, ...props }) => {
+  const [focused, setFocused] = useState(false);
   return (
-    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-8 rounded-3xl border border-indigo-200 shadow-lg">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-2 flex items-center">
-            <Calendar className="w-7 h-7 text-indigo-600 mr-3" />
-            Consultation Availability
-          </h3>
-          <p className="text-gray-600 font-medium">
-            Set your consultation hours to help patients book appointments
-          </p>
-        </div>
-        
-        {/* Quick Stats */}
-        <div className="hidden md:flex space-x-6">
-          <div className="text-center bg-white/70 backdrop-blur-sm rounded-2xl p-4 border border-white/50">
-            <div className="text-2xl font-bold text-indigo-600">{getAvailableDaysCount()}</div>
-            <div className="text-sm text-gray-600 font-medium">Available Days</div>
-          </div>
-          <div className="text-center bg-white/70 backdrop-blur-sm rounded-2xl p-4 border border-white/50">
-            <div className="text-2xl font-bold text-purple-600">{getTotalAvailableHours().toFixed(1)}h</div>
-            <div className="text-sm text-gray-600 font-medium">Total Hours</div>
-          </div>
-        </div>
-      </div>
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+      {label && <label className="block text-[0.78rem] font-bold mb-1.5" style={{ color: 'var(--s700)' }}>{label}{required && ' *'}</label>}
+      <motion.div className="relative" animate={{ scale: focused ? 1.008 : 1 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+        <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[17px] h-[17px] transition-colors duration-300"
+          style={{ color: focused ? 'var(--blue-600)' : error ? '#EF4444' : 'var(--s400)' }} />
+        <input {...props}
+          className="w-full pl-10 pr-4 py-3.5 rounded-[12px] text-[0.9rem] font-medium outline-none transition-all duration-300"
+          style={{ background: focused ? 'white' : 'var(--s50)', border: `2px solid ${error ? '#FCA5A5' : focused ? 'var(--blue-500)' : 'var(--s200)'}`,
+            color: 'var(--navy-800)', boxShadow: focused ? '0 0 0 4px rgba(37,99,235,0.06)' : 'none' }}
+          onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} />
+      </motion.div>
+      <AnimatePresence>
+        {error && <motion.p className="text-[0.72rem] font-medium mt-1" style={{ color: '#EF4444' }}
+          initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>{error}</motion.p>}
+      </AnimatePresence>
+    </motion.div>
+  );
+};
 
-      {/* Quick Schedule Templates */}
-      <div className="mb-8">
-        <div className="flex items-center mb-4">
-          <Info className="w-5 h-5 text-blue-500 mr-2" />
-          <span className="text-sm font-semibold text-gray-700">Quick Schedule Templates:</span>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button
-            type="button"
-            onClick={() => setQuickSchedule('business')}
-            className="p-4 bg-white rounded-2xl border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all duration-300 text-left group"
-          >
-            <div className="font-bold text-gray-900 group-hover:text-blue-700 mb-1">Business Hours</div>
-            <div className="text-sm text-gray-600">Mon-Fri, 9 AM - 5 PM</div>
-          </button>
-          <button
-            type="button"
-            onClick={() => setQuickSchedule('flexible')}
-            className="p-4 bg-white rounded-2xl border-2 border-gray-200 hover:border-green-400 hover:bg-green-50 transition-all duration-300 text-left group"
-          >
-            <div className="font-bold text-gray-900 group-hover:text-green-700 mb-1">Flexible Schedule</div>
-            <div className="text-sm text-gray-600">All days, Morning & Evening</div>
-          </button>
-          <button
-            type="button"
-            onClick={() => setQuickSchedule('evening')}
-            className="p-4 bg-white rounded-2xl border-2 border-gray-200 hover:border-purple-400 hover:bg-purple-50 transition-all duration-300 text-left group"
-          >
-            <div className="font-bold text-gray-900 group-hover:text-purple-700 mb-1">Evening Clinic</div>
-            <div className="text-sm text-gray-600">Weekdays 5-9 PM, Weekends 10-4 PM</div>
-          </button>
-        </div>
-      </div>
-
-      <div className="grid lg:grid-cols-5 gap-8">
-        {/* Day Selection */}
-        <div className="lg:col-span-2">
-          <h4 className="text-lg font-bold text-gray-800 mb-4">Select Day</h4>
-          <div className="space-y-2">
-            {days.map(day => {
-              const dayData = formData.availability[day.key];
-              const isSelected = selectedDay === day.key;
-              const hasSlots = dayData.available && dayData.slots.length > 0;
-              
-              return (
-                <div
-                  key={day.key}
-                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all duration-300 ${
-                    isSelected 
-                      ? 'border-indigo-400 bg-indigo-50 shadow-md' 
-                      : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
-                  }`}
-                  onClick={() => setSelectedDay(day.key)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-3 h-3 rounded-full ${
-                        dayData.available ? 'bg-green-500' : 'bg-gray-300'
-                      }`} />
-                      <span className={`font-bold ${
-                        isSelected ? 'text-indigo-700' : 'text-gray-700'
-                      }`}>
-                        {day.label}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {hasSlots && (
-                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
-                          {dayData.slots.length} slot{dayData.slots.length !== 1 ? 's' : ''}
-                        </span>
-                      )}
-                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                        dayData.available 
-                          ? 'border-green-500 bg-green-500' 
-                          : 'border-gray-300'
-                      }`}>
-                        {dayData.available && <CheckCircle className="w-4 h-4 text-white" />}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {dayData.available && dayData.slots.length > 0 && (
-                    <div className="mt-2 text-xs text-gray-600">
-                      {dayData.slots.map((slot, idx) => (
-                        <span key={idx} className="mr-2">
-                          {slot.start} - {slot.end}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Time Slot Management */}
-        <div className="lg:col-span-3">
-          <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-              <h4 className="text-lg font-bold text-gray-800 flex items-center">
-                <Clock className="w-5 h-5 text-indigo-600 mr-2" />
-                {days.find(d => d.key === selectedDay)?.label} Schedule
-              </h4>
-              
-              <div className="flex items-center space-x-3">
-                {formData.availability[selectedDay].available && formData.availability[selectedDay].slots.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => copyToAllDays(selectedDay)}
-                    className="text-sm bg-blue-100 text-blue-700 px-4 py-2 rounded-xl font-medium hover:bg-blue-200 transition-all duration-300"
-                  >
-                    Copy to All Days
-                  </button>
-                )}
-                
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.availability[selectedDay].available}
-                    onChange={() => toggleDayAvailability(selectedDay)}
-                    className="w-5 h-5 text-indigo-600 border-2 border-gray-300 rounded focus:ring-indigo-500"
-                  />
-                  <span className="font-medium text-gray-700">Available</span>
-                </label>
-              </div>
-            </div>
-
-            {formData.availability[selectedDay].available ? (
-              <div className="space-y-4">
-                {formData.availability[selectedDay].slots.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    <Clock className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="font-medium">No time slots added yet</p>
-                    <p className="text-sm">Click "Add Time Slot" to get started</p>
-                  </div>
-                )}
-
-                {formData.availability[selectedDay].slots.map((slot, index) => {
-                  const isValid = validateTimeSlot(slot.start, slot.end);
-                  
-                  return (
-                    <div
-                      key={index}
-                      className={`p-4 rounded-2xl border-2 transition-all duration-300 ${
-                        isValid 
-                          ? 'border-green-200 bg-green-50' 
-                          : 'border-red-200 bg-red-50'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-4">
-                        <div className="flex-1 grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">
-                              Start Time
-                            </label>
-                            <select
-                              value={slot.start}
-                              onChange={(e) => updateTimeSlot(selectedDay, index, 'start', e.target.value)}
-                              className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl font-medium focus:outline-none focus:border-indigo-400 transition-all duration-300"
-                            >
-                              <option value="">Select start time</option>
-                              {timeSlots.map(time => (
-                                <option key={time} value={time}>{time}</option>
-                              ))}
-                            </select>
-                          </div>
-                          
-                          <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">
-                              End Time
-                            </label>
-                            <select
-                              value={slot.end}
-                              onChange={(e) => updateTimeSlot(selectedDay, index, 'end', e.target.value)}
-                              className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl font-medium focus:outline-none focus:border-indigo-400 transition-all duration-300"
-                            >
-                              <option value="">Select end time</option>
-                              {timeSlots.map(time => (
-                                <option key={time} value={time}>{time}</option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center space-x-2">
-                          {isValid ? (
-                            <CheckCircle className="w-6 h-6 text-green-500" />
-                          ) : (
-                            <AlertCircle className="w-6 h-6 text-red-500" />
-                          )}
-                          
-                          <button
-                            type="button"
-                            onClick={() => removeTimeSlot(selectedDay, index)}
-                            className="p-2 text-red-500 hover:bg-red-100 rounded-xl transition-all duration-300"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-                      
-                      {!isValid && slot.start && slot.end && (
-                        <div className="mt-2 text-sm text-red-600 font-medium flex items-center">
-                          <AlertCircle className="w-4 h-4 mr-1" />
-                          End time must be after start time
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                <button
-                  type="button"
-                  onClick={() => addTimeSlot(selectedDay)}
-                  className="w-full py-4 border-2 border-dashed border-indigo-300 rounded-2xl text-indigo-600 font-bold hover:border-indigo-400 hover:bg-indigo-50 transition-all duration-300 flex items-center justify-center space-x-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span>Add Time Slot</span>
-                </button>
-              </div>
-            ) : (
-              <div className="text-center py-12 text-gray-400">
-                <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-lg font-medium">Day Not Available</p>
-                <p className="text-sm">Enable this day to set consultation hours</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Summary */}
-      <div className="mt-8 p-6 bg-white rounded-2xl border border-gray-200">
-        <h4 className="text-lg font-bold text-gray-800 mb-4">Availability Summary</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="text-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
-            <div className="text-2xl font-bold text-blue-600">{getAvailableDaysCount()}</div>
-            <div className="text-sm text-blue-700 font-medium">Available Days</div>
-          </div>
-          <div className="text-center p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
-            <div className="text-2xl font-bold text-green-600">{getTotalAvailableHours().toFixed(1)}h</div>
-            <div className="text-sm text-green-700 font-medium">Total Hours/Week</div>
-          </div>
-          <div className="text-center p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200">
-            <div className="text-2xl font-bold text-purple-600">
-              {formData.availability ? Object.values(formData.availability).reduce((total, day) => total + (day && day.slots ? day.slots.length : 0), 0) : 0}
-            </div>
-            <div className="text-sm text-purple-700 font-medium">Time Slots</div>
-          </div>
-          <div className="text-center p-4 bg-gradient-to-r from-orange-50 to-red-50 rounded-xl border border-orange-200">
-            <div className="text-2xl font-bold text-orange-600">
-              {getTotalAvailableHours() > 0 ? '✓' : '✗'}
-            </div>
-            <div className="text-sm text-orange-700 font-medium">Ready to Accept</div>
-          </div>
-        </div>
-        
-        {getTotalAvailableHours() === 0 && (
-          <div className="mt-4 p-3 bg-yellow-100 border border-yellow-300 rounded-xl flex items-center">
-            <AlertCircle className="w-5 h-5 text-yellow-600 mr-2" />
-            <span className="text-sm text-yellow-700 font-medium">
-              Please set at least one time slot to start accepting appointments
-            </span>
-          </div>
-        )}
-      </div>
+const Select = ({ icon: Icon, label, required, children, ...props }) => {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div>
+      {label && <label className="block text-[0.78rem] font-bold mb-1.5" style={{ color: 'var(--s700)' }}>{label}{required && ' *'}</label>}
+      <motion.div className="relative" animate={{ scale: focused ? 1.008 : 1 }}>
+        <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[17px] h-[17px]" style={{ color: focused ? 'var(--blue-600)' : 'var(--s400)' }} />
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--s400)' }} />
+        <select {...props}
+          className="w-full pl-10 pr-9 py-3.5 rounded-[12px] text-[0.9rem] font-medium outline-none appearance-none cursor-pointer transition-all duration-300"
+          style={{ background: focused ? 'white' : 'var(--s50)', border: `2px solid ${focused ? 'var(--blue-500)' : 'var(--s200)'}`, color: 'var(--navy-800)' }}
+          onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}>{children}</select>
+      </motion.div>
     </div>
   );
 };
-const DoctorRegister = () => {
-  const navigate = useNavigate();
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
-  const [formData, setFormData] = useState({
-    // User fields
-    firstName: '',
-    lastName: '',
-    email: '',
-    phoneNumber: '',
-    password: '',
-    confirmPassword: '',
-    gender: '',
-    address: {
-      province: '',
-      district: '',
-      municipality: ''
-      
-    },
-    
-    // Doctor specific fields
-    licenseNumber: '',
-    nmc_registration: '',
-    primarySpecialization: '',
-    totalExperience: '',
-    bio: '',
-    languagesSpoken: ['English', 'Nepali'],
-    consultationFee: {
-      video: 500,
-      audio: 300,
-      chat: 200,
-      inPerson: 800
-    },
-   availability: {
-  monday: { available: false, slots: [] },
-  tuesday: { available: false, slots: [] },
-  wednesday: { available: false, slots: [] },
-  thursday: { available: false, slots: [] },
-  friday: { available: false, slots: [] },
-  saturday: { available: false, slots: [] },
-  sunday: { available: false, slots: [] }
-},
-    currentWorkplace: [{
-      hospitalName: '',
-      position: '',
-      isCurrentlyWorking: true
-    }]
-  });
+
+const Textarea = ({ icon: Icon, label, ...props }) => {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div>
+      {label && <label className="block text-[0.78rem] font-bold mb-1.5" style={{ color: 'var(--s700)' }}>{label}</label>}
+      <motion.div className="relative" animate={{ scale: focused ? 1.005 : 1 }}>
+        <Icon className="absolute left-3.5 top-3.5 w-[17px] h-[17px]" style={{ color: focused ? 'var(--blue-600)' : 'var(--s400)' }} />
+        <textarea {...props} rows={3}
+          className="w-full pl-10 pr-4 py-3.5 rounded-[12px] text-[0.9rem] font-medium outline-none resize-none transition-all duration-300"
+          style={{ background: focused ? 'white' : 'var(--s50)', border: `2px solid ${focused ? 'var(--blue-500)' : 'var(--s200)'}`, color: 'var(--navy-800)',
+            boxShadow: focused ? '0 0 0 4px rgba(37,99,235,0.06)' : 'none' }}
+          onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} />
+      </motion.div>
+    </div>
+  );
+};
+
+/* Steps */
+const Steps = ({ current, total }) => (
+  <div className="flex items-center gap-1.5 mb-5">
+    {Array.from({ length: total }, (_, i) => (
+      <React.Fragment key={i}>
+        <motion.div className="w-6 h-6 rounded-full flex items-center justify-center text-[0.62rem] font-bold"
+          animate={{ background: i <= current ? 'var(--blue-600)' : 'var(--s100)', color: i <= current ? 'white' : 'var(--s400)' }}>
+          {i < current ? '✓' : i + 1}
+        </motion.div>
+        {i < total - 1 && <motion.div className="flex-1 h-[2px] rounded-full" animate={{ background: i < current ? 'var(--blue-600)' : 'var(--s200)' }} />}
+      </React.Fragment>
+    ))}
+  </div>
+);
+
+const stepLabels = ['Personal', 'Professional', 'Practice', 'Documents', 'Security'];
+const specializations = ['General Medicine','Internal Medicine','Family Medicine','Cardiology','Dermatology','Pediatrics','Orthopedics','Gynecology & Obstetrics','Psychiatry','Neurology','Dentistry','ENT','Ophthalmology','Emergency Medicine','Gastroenterology','Nephrology','Pulmonology','Urology','Oncology','Surgery','Neurosurgery'];
+const qualifications = ['MBBS','MD','MS','DM','MCh','BDS','MDS','PhD','FCPS','DNB','Diploma'];
+
+const slideVariants = {
+  enter: (d) => ({ x: d > 0 ? 50 : -50, opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit: (d) => ({ x: d > 0 ? -50 : 50, opacity: 0 }),
+};
+
+export default function DoctorRegister() {
+  const [step, setStep] = useState(0);
+  const [dir, setDir] = useState(1);
+  const [showPwd, setShowPwd] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [termsOk, setTermsOk] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [errors, setErrors] = useState({});
+  const [form, setForm] = useState({
+    firstName: '', lastName: '', email: '', phone: '', dateOfBirth: '', gender: '',
+    nmcLicense: '', specialization: '', subSpecialization: '', qualification: '', medicalSchool: '', yearsExperience: '', currentHospital: '',
+    consultationFee: '', consultTypes: [], languages: [], bio: '',
+    profilePhoto: null, nmcCertificate: null, degreeCertificate: null, governmentId: null,
+    password: '', confirmPassword: '',
+  });
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    
-    // Handle nested objects
-    if (name.includes('.')) {
-      const [parent, child] = name.split('.');
-      if (parent === 'address') {
-        setFormData(prev => ({
-          ...prev,
-          address: { ...prev.address, [child]: value }
-        }));
-      } else if (parent === 'consultationFee') {
-        setFormData(prev => ({
-          ...prev,
-          consultationFee: { ...prev.consultationFee, [child]: parseInt(value) || 0 }
-        }));
-      } else if (parent === 'currentWorkplace') {
-        setFormData(prev => ({
-          ...prev,
-          currentWorkplace: [{ ...prev.currentWorkplace[0], [child]: value }]
-        }));
-      }
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
-    
-    // Clear specific error when user starts typing
-    if (errors[name] || errors[name.split('.')[0]]) {
-      const newErrors = { ...errors };
-      delete newErrors[name];
-      delete newErrors[name.split('.')[0]];
-      setErrors(newErrors);
-    }
+  const set = (e) => { const { name, value } = e.target; setForm(p => ({ ...p, [name]: value })); if (errors[name]) setErrors(p => ({ ...p, [name]: '' })); };
+  const toggle = (field, val) => setForm(p => ({ ...p, [field]: p[field].includes(val) ? p[field].filter(x => x !== val) : [...p[field], val] }));
+
+  const validate = () => {
+    const err = {};
+    if (step === 0) { if (!form.firstName) err.firstName = 'Required'; if (!form.lastName) err.lastName = 'Required'; if (!form.email) err.email = 'Required'; else if (!/\S+@\S+\.\S+/.test(form.email)) err.email = 'Invalid'; if (!form.phone) err.phone = 'Required'; }
+    if (step === 1) { if (!form.nmcLicense) err.nmcLicense = 'Required'; if (!form.specialization) err.specialization = 'Required'; if (!form.qualification) err.qualification = 'Required'; }
+    if (step === 2 && !form.consultationFee) err.consultationFee = 'Required';
+    if (step === 4) { if (!form.password) err.password = 'Required'; else if (form.password.length < 8) err.password = 'Min 8 chars'; if (form.password !== form.confirmPassword) err.confirmPassword = "Don't match"; if (!termsOk) err.terms = 'Required'; }
+    setErrors(err); return !Object.keys(err).length;
   };
 
-  const handleLanguageChange = (language, checked) => {
-    setFormData(prev => ({
-      ...prev,
-      languagesSpoken: checked 
-        ? [...prev.languagesSpoken, language]
-        : prev.languagesSpoken.filter(lang => lang !== language)
-    }));
-  };
+  const navigate = useNavigate();
+  const { registerDoctor: firebaseRegisterDoctor } = useAuth();
 
-  const validateForm = () => {
-    const newErrors = {};
-    
-    // Required field validation
-    if (!formData.firstName) newErrors.firstName = 'First name is required';
-    if (!formData.lastName) newErrors.lastName = 'Last name is required';
-    if (!formData.email) newErrors.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email format';
-    
-    if (!formData.phoneNumber) newErrors.phoneNumber = 'Phone number is required';
-    else if (!/^(\+977)?[0-9]{10}$/.test(formData.phoneNumber)) {
-      newErrors.phoneNumber = 'Please enter a valid Nepali phone number';
-    }
-    
-    if (!formData.password) newErrors.password = 'Password is required';
-    else if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
-    
-    if (!formData.confirmPassword) newErrors.confirmPassword = 'Please confirm your password';
-    else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-    
-    if (!formData.licenseNumber) newErrors.licenseNumber = 'License number is required';
-    if (!formData.nmc_registration) newErrors.nmc_registration = 'NMC registration number is required';
-    if (!formData.primarySpecialization) newErrors.primarySpecialization = 'Primary specialization is required';
-    if (!formData.totalExperience) newErrors.totalExperience = 'Total experience is required';
-    if (!formData.address.province) newErrors['address.province'] = 'Province is required';
-    if (!formData.address.district) newErrors['address.district'] = 'District is required';
-    if (!formData.currentWorkplace[0].hospitalName) newErrors['currentWorkplace.hospitalName'] = 'Current workplace is required';
-    
-    if (!termsAccepted) newErrors.terms = 'You must accept the terms and conditions';
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  const next = () => { if (validate()) { setDir(1); setStep(s => Math.min(s + 1, 4)); } };
+  const prev = () => { setDir(-1); setStep(s => Math.max(s - 1, 0)); };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-    
-    setIsLoading(true);
-    
+  const submit = async (e) => {
+    e.preventDefault(); if (!validate()) return;
+    setLoading(true); setErrors({});
     try {
-      // Prepare data for API
-      const apiData = {
-        // User fields
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        phoneNumber: formData.phoneNumber,
-        password: formData.password,
-        confirmPassword: formData.confirmPassword,
-        gender: formData.gender || 'not-specified',
-        address: formData.address,
-        
-        // Doctor specific fields
-        licenseNumber: formData.licenseNumber,
-        nmc_registration: formData.nmc_registration,
-        primarySpecialization: formData.primarySpecialization,
-        totalExperience: parseInt(formData.totalExperience),
-        bio: formData.bio,
-        languagesSpoken: formData.languagesSpoken,
-        consultationFee: formData.consultationFee,
-        availability: formData.availability,
-        currentWorkplace: formData.currentWorkplace.filter(w => w.hospitalName)
-      };
-
-      console.log('Submitting doctor registration:', apiData);
-
-      // Make API call
-      const response = await fetch('http://localhost:8000/api/auth/signup/doctor', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify(apiData),
-});
-
-
-      const result = await response.json();
-
-      if (response.ok) {
-        // Success - redirect to login or dashboard
-        console.log('Registration successful:', result);
-        alert('Registration successful! Please check your email for verification.');
-        navigate('/home/Login');
-      } else {
-        // Handle API errors
-        console.error('Registration failed:', result);
-        
-        if (result.errors && Array.isArray(result.errors)) {
-          const formErrors = {};
-          result.errors.forEach(error => {
-            const errorMsg = error.toLowerCase();
-            if (errorMsg.includes('email')) formErrors.email = error;
-            else if (errorMsg.includes('phone')) formErrors.phoneNumber = error;
-            else if (errorMsg.includes('license')) formErrors.licenseNumber = error;
-            else if (errorMsg.includes('nmc')) formErrors.nmc_registration = error;
-            else formErrors.general = error;
-          });
-          setErrors(formErrors);
-        } else {
-          setErrors({ general: result.message || 'Registration failed. Please try again.' });
-        }
-      }
-    } catch (error) {
-      console.error('Network error:', error);
-      setErrors({ general: 'Network error. Please check your connection and try again.' });
-    } finally {
-      setIsLoading(false);
-    }
+      const result = await firebaseRegisterDoctor({
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        email: form.email.trim().toLowerCase(),
+        password: form.password,
+        phone: form.phone,
+        dateOfBirth: form.dateOfBirth,
+        gender: form.gender,
+        nmcLicense: form.nmcLicense,
+        specialization: form.specialization,
+        subSpecialization: form.subSpecialization,
+        qualification: form.qualification,
+        medicalSchool: form.medicalSchool,
+        yearsExperience: form.yearsExperience,
+        currentHospital: form.currentHospital,
+        consultationFee: form.consultationFee,
+        consultTypes: form.consultTypes,
+        languages: form.languages,
+        bio: form.bio,
+      });
+      if (result.success) setSuccess(true);
+      else setErrors({ general: result.error });
+    } catch (error) { setErrors({ general: 'Network error. Please try again.' }); }
+    finally { setLoading(false); }
   };
 
-  const specializations = [
-    'General Medicine', 'Internal Medicine', 'Family Medicine', 'Cardiology', 'Dermatology', 
-    'Pediatrics', 'Orthopedics', 'Gynecology', 'Psychiatry', 'Neurology', 
-    'Dentistry', 'ENT', 'Ophthalmology', 'Radiology', 'Anesthesiology',
-    'Emergency Medicine', 'Gastroenterology', 'Nephrology', 'Pulmonology', 'Endocrinology',
-    'Rheumatology', 'Urology', 'Oncology', 'Pathology', 'Surgery'
-  ];
-
-  const nepaliProvinces = [
-    'Province 1', 'Madhesh Province', 'Bagmati Province',
-    'Gandaki Province', 'Lumbini Province', 'Karnali Province',
-    'Sudurpashchim Province'
-  ];
-
-  const nepaliDistricts = [
-    'Achham', 'Arghakhanchi', 'Baglung', 'Baitadi', 'Bajhang', 'Bajura', 'Banke', 
-    'Bara', 'Bardiya', 'Bhaktapur', 'Bhojpur', 'Chitwan', 'Dadeldhura', 'Dailekh', 
-    'Dang', 'Darchula', 'Dhading', 'Dhankuta', 'Dhanusa', 'Dolakha', 'Dolpa', 
-    'Doti', 'Gorkha', 'Gulmi', 'Humla', 'Ilam', 'Jajarkot', 'Jhapa', 'Jumla', 
-    'Kailali', 'Kalikot', 'Kanchanpur', 'Kapilvastu', 'Kaski', 'Kathmandu', 
-    'Kavrepalanchok', 'Khotang', 'Lalitpur', 'Lamjung', 'Mahottari', 'Makwanpur', 
-    'Manang', 'Morang', 'Mugu', 'Mustang', 'Myagdi', 'Nawalparasi East', 
-    'Nawalparasi West', 'Nuwakot', 'Okhaldhunga', 'Palpa', 'Panchthar', 'Parbat', 
-    'Parsa', 'Pyuthan', 'Ramechhap', 'Rasuwa', 'Rautahat', 'Rolpa', 'Rukum East', 
-    'Rukum West', 'Rupandehi', 'Salyan', 'Sankhuwasabha', 'Saptari', 'Sarlahi', 
-    'Sindhuli', 'Sindhupalchok', 'Siraha', 'Solukhumbu', 'Sunsari', 'Surkhet', 
-    'Syangja', 'Tanahun', 'Taplejung', 'Terhathum', 'Udayapur'
-  ];
-
-  const availableLanguages = ['Nepali', 'English', 'Hindi', 'Maithili', 'Bhojpuri', 'Newari', 'Urdu'];
-
-  const benefits = [
-    { 
-      icon: Clock, 
-      title: "Flexible Hours", 
-      desc: "Practice on your own schedule",
-      gradient: "from-blue-500 to-indigo-500"
-    },
-    { 
-      icon: Shield, 
-      title: "Secure Platform", 
-      desc: "HIPAA compliant consultations",
-      gradient: "from-purple-500 to-pink-500"
-    },
-    { 
-      icon: Award, 
-      title: "Verified Network", 
-      desc: "Join Nepal's trusted doctors",
-      gradient: "from-emerald-500 to-teal-500"
-    }
-  ];
+  if (success) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-8" style={{ background: 'var(--s50)' }}>
+        <motion.div className="max-w-md w-full rounded-[24px] p-10 text-center"
+          style={{ background: 'white', boxShadow: '0 24px 64px -16px rgba(15,23,42,0.1)', border: '1px solid var(--s100)' }}
+          initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
+          <motion.div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
+            style={{ background: 'var(--blue-50)' }}
+            initial={{ scale: 0, rotate: -180 }} animate={{ scale: 1, rotate: 0 }} transition={{ delay: 0.2, type: 'spring' }}>
+            <CheckCircle size={28} style={{ color: 'var(--blue-600)' }} />
+          </motion.div>
+          <h2 className="text-[1.5rem] font-extrabold mb-3" style={{ color: 'var(--navy-800)' }}>Application Submitted!</h2>
+          <p className="text-[0.9rem] mb-6" style={{ color: 'var(--s500)' }}>Our team will verify your credentials within 24-48 hours.</p>
+          <Link to="/home/Login"><motion.button className="btn-primary" whileHover={{ scale: 1.04 }}>Go to Sign In <ArrowRight size={18} /></motion.button></Link>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="flex min-h-screen">
-        
-        {/* Left Side - Enhanced Branding */}
-        <div className="hidden lg:flex lg:w-2/5 bg-gradient-to-br from-emerald-600 via-green-600 to-teal-600 p-12 flex-col justify-between text-white relative overflow-hidden">
-          
-          {/* Enhanced Background Effects */}
-          <div className="absolute inset-0">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 via-indigo-500/30 to-purple-500/20"></div>
-            <div className="absolute top-0 left-0 w-96 h-96 bg-white/10 rounded-full -translate-x-48 -translate-y-48 animate-pulse"></div>
-            <div className="absolute bottom-0 right-0 w-80 h-80 bg-white/5 rounded-full translate-x-40 translate-y-40"></div>
+    <div className="min-h-screen flex flex-col items-center px-6 py-10 relative overflow-hidden" style={{ background: 'var(--s50)' }}>
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.04), transparent 70%)' }} />
+
+      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
+        <Link to="/" className="flex items-center gap-3">
+          <motion.div className="w-10 h-10 rounded-[12px] flex items-center justify-center" style={{ background: 'var(--blue-600)' }}
+            whileHover={{ scale: 1.1, rotate: -5 }}><span className="text-white font-black text-lg">S</span></motion.div>
+          <span className="text-[1.25rem] font-extrabold tracking-[-0.03em]" style={{ color: 'var(--navy-800)' }}>
+            Sajha<span style={{ color: 'var(--blue-600)' }}>Doctor</span></span>
+        </Link>
+      </motion.div>
+
+      <motion.div className="w-full max-w-[560px]" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+        <div className="rounded-[24px] p-7 md:p-9" style={{ background: 'white', boxShadow: '0 1px 3px rgba(15,23,42,0.04), 0 12px 40px -8px rgba(15,23,42,0.06)', border: '1px solid var(--s100)' }}>
+
+          <div className="flex items-center gap-2.5 mb-1">
+            <Stethoscope size={20} style={{ color: 'var(--blue-600)' }} />
+            <h1 className="text-[1.4rem] font-extrabold" style={{ color: 'var(--navy-800)', letterSpacing: '-0.03em' }}>Doctor Registration</h1>
           </div>
+          <p className="text-[0.82rem] mb-4" style={{ color: 'var(--s500)' }}>Step {step + 1} of 5 — <strong>{stepLabels[step]}</strong></p>
 
-          <div className="relative z-20">
-            {/* Premium Logo */}
-            <div className="flex items-center space-x-4 mb-12">
-              <div className="relative">
-                <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/30">
-                  <span className="text-white font-black text-2xl">H</span>
-                </div>
-                <div className="absolute -top-1 -right-1 w-6 h-6 bg-emerald-400 rounded-full flex items-center justify-center">
-                  <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                </div>
-              </div>
-              <div>
-                <div className="text-2xl font-black">Sajha<span className="text-emerald-200">Doctor</span></div>
-                <div className="text-emerald-200 text-sm font-medium">Virtual Care Platform</div>
-              </div>
-            </div>
+          <Steps current={step} total={5} />
 
-            {/* Content */}
-            <div className="space-y-8">
-              <div>
-                <h2 className="text-4xl lg:text-5xl font-black mb-6 leading-tight">
-                  Join Our Network of Expert Doctors
-                </h2>
-                <p className="text-emerald-100 text-xl leading-relaxed font-light">
-                  Expand your practice and reach patients across Nepal through our trusted telemedicine platform.
-                </p>
-              </div>
-
-              {/* Enhanced Stats */}
-              <div className="grid grid-cols-2 gap-6">
-                <div className="bg-white/15 rounded-2xl p-6 backdrop-blur-md border border-white/20">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <Users className="w-6 h-6 text-emerald-200" />
-                    <div className="text-3xl font-black">500+</div>
+          <form onSubmit={submit}>
+            <AnimatePresence mode="wait" custom={dir}>
+              {/* Step 0: Personal */}
+              {step === 0 && (
+                <motion.div key="d0" className="space-y-3" custom={dir} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input icon={User} name="firstName" value={form.firstName} onChange={set} placeholder="First name" label="First Name" required error={errors.firstName} />
+                    <Input icon={User} name="lastName" value={form.lastName} onChange={set} placeholder="Last name" label="Last Name" required error={errors.lastName} />
                   </div>
-                  <div className="text-emerald-200 font-medium">Active Doctors</div>
-                </div>
-                <div className="bg-white/15 rounded-2xl p-6 backdrop-blur-md border border-white/20">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <CheckCircle className="w-6 h-6 text-green-200" />
-                    <div className="text-3xl font-black">50M+</div>
+                  <Input icon={Mail} type="email" name="email" value={form.email} onChange={set} placeholder="Email" label="Email" required error={errors.email} />
+                  <Input icon={Phone} name="phone" value={form.phone} onChange={set} placeholder="+977 98XXXXXXXX" label="Phone" required error={errors.phone} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input icon={User} type="date" name="dateOfBirth" value={form.dateOfBirth} onChange={set} label="Date of Birth" />
+                    <Select icon={User} name="gender" value={form.gender} onChange={set} label="Gender">
+                      <option value="">Select</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
+                    </Select>
                   </div>
-                  <div className="text-green-200 font-medium">Patient Reach</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Benefits */}
-          <div className="relative z-20 space-y-4">
-            {benefits.map((benefit, index) => {
-              const IconComponent = benefit.icon;
-              return (
-                <div key={index} className="flex items-center space-x-4 group">
-                  <div className={`w-12 h-12 bg-gradient-to-r ${benefit.gradient} rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg group-hover:scale-110 transition-all duration-300`}>
-                    <IconComponent className="w-6 h-6 text-white" />
+                </motion.div>
+              )}
+              {/* Step 1: Professional */}
+              {step === 1 && (
+                <motion.div key="d1" className="space-y-3" custom={dir} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+                  <Input icon={FileText} name="nmcLicense" value={form.nmcLicense} onChange={set} placeholder="e.g. NMC-12345" label="NMC License Number" required error={errors.nmcLicense} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Select icon={Stethoscope} name="specialization" value={form.specialization} onChange={set} label="Specialization" required>
+                      <option value="">Select</option>{specializations.map(s => <option key={s} value={s}>{s}</option>)}
+                    </Select>
+                    <Input icon={Stethoscope} name="subSpecialization" value={form.subSpecialization} onChange={set} placeholder="e.g. Interventional" label="Sub-specialization" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Select icon={GraduationCap} name="qualification" value={form.qualification} onChange={set} label="Qualification" required>
+                      <option value="">Select</option>{qualifications.map(q => <option key={q} value={q}>{q}</option>)}
+                    </Select>
+                    <Input icon={GraduationCap} name="medicalSchool" value={form.medicalSchool} onChange={set} placeholder="e.g. IOM, TU" label="Medical School" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input icon={Stethoscope} type="number" name="yearsExperience" value={form.yearsExperience} onChange={set} placeholder="Years" label="Experience" />
+                    <Input icon={Building2} name="currentHospital" value={form.currentHospital} onChange={set} placeholder="Hospital / Clinic" label="Current Affiliation" />
+                  </div>
+                </motion.div>
+              )}
+              {/* Step 2: Practice */}
+              {step === 2 && (
+                <motion.div key="d2" className="space-y-4" custom={dir} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+                  <Input icon={CreditCard} type="number" name="consultationFee" value={form.consultationFee} onChange={set} placeholder="e.g. 500" label="Consultation Fee (NPR)" required error={errors.consultationFee} />
+                  <div>
+                    <label className="block text-[0.78rem] font-bold mb-2" style={{ color: 'var(--s700)' }}>Consultation Types</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {['Video Call','Audio Call','Chat'].map(t => (
+                        <motion.button key={t} type="button" onClick={() => toggle('consultTypes', t)}
+                          className="px-4 py-2.5 rounded-[10px] text-[0.82rem] font-bold"
+                          style={{ background: form.consultTypes.includes(t) ? 'var(--blue-600)' : 'var(--s50)', color: form.consultTypes.includes(t) ? 'white' : 'var(--s600)',
+                            border: `2px solid ${form.consultTypes.includes(t) ? 'var(--blue-600)' : 'var(--s200)'}` }}
+                          whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.96 }}>{t}</motion.button>
+                      ))}
+                    </div>
                   </div>
                   <div>
-                    <div className="font-bold text-lg">{benefit.title}</div>
-                    <div className="text-emerald-200">{benefit.desc}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Right Side - Form */}
-        <div className="w-full lg:w-3/5 p-8 lg:p-12 flex flex-col justify-start max-h-screen overflow-y-auto pt-16 lg:pt-20">
-          
-          {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center justify-center space-x-3 mb-8">
-            <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-xl">H</span>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900">HealthCare<span className="text-emerald-600">Nepal</span></div>
-              <div className="text-gray-600 text-sm">Virtual Care Platform</div>
-            </div>
-          </div>
-
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="flex items-center justify-center space-x-3 mb-4">
-              <Stethoscope className="w-10 h-10 text-emerald-600" />
-              <h1 className="text-4xl lg:text-5xl font-black text-gray-900">Doctor Registration</h1>
-            </div>
-            <p className="text-gray-600 text-xl font-light">
-              Join our network of healthcare professionals
-            </p>
-          </div>
-
-          {/* General Error Display */}
-          {errors.general && (
-            <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-2xl">
-              {errors.general}
-            </div>
-          )}
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            
-            {/* Personal Information Section */}
-            <div className="bg-blue-50 p-6 rounded-2xl border border-blue-200">
-              <h3 className="text-lg font-bold text-gray-800 mb-4">Personal Information</h3>
-              
-              {/* Name Fields */}
-              <div className="grid md:grid-cols-2 gap-6 mb-6">
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">First Name *</label>
-                  <div className="relative">
-                    <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                    <input
-                      type="text"
-                      name="firstName"
-                      value={formData.firstName}
-                      onChange={handleInputChange}
-                      className={`w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white ${
-                        errors.firstName ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-blue-500 hover:border-gray-300'
-                      }`}
-                      placeholder="Enter your first name"
-                    />
-                  </div>
-                  {errors.firstName && <p className="text-red-500 text-sm mt-2 font-medium">{errors.firstName}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">Last Name *</label>
-                  <div className="relative">
-                    <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                    <input
-                      type="text"
-                      name="lastName"
-                      value={formData.lastName}
-                      onChange={handleInputChange}
-                      className={`w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white ${
-                        errors.lastName ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-blue-500 hover:border-gray-300'
-                      }`}
-                      placeholder="Enter your last name"
-                    />
-                  </div>
-                  {errors.lastName && <p className="text-red-500 text-sm mt-2 font-medium">{errors.lastName}</p>}
-                </div>
-              </div>
-
-              {/* Email and Phone */}
-              <div className="grid md:grid-cols-2 gap-6 mb-6">
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">Email Address *</label>
-                  <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      className={`w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white ${
-                        errors.email ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-blue-500 hover:border-gray-300'
-                      }`}
-                      placeholder="Enter your email address"
-                    />
-                  </div>
-                  {errors.email && <p className="text-red-500 text-sm mt-2 font-medium">{errors.email}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">Phone Number *</label>
-                  <div className="relative">
-                    <Phone className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                    <input
-                      type="tel"
-                      name="phoneNumber"
-                      value={formData.phoneNumber}
-                      onChange={handleInputChange}
-                      className={`w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white ${
-                        errors.phoneNumber ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-blue-500 hover:border-gray-300'
-                      }`}
-                      placeholder="+977 98XXXXXXXX"
-                    />
-                  </div>
-                  {errors.phoneNumber && <p className="text-red-500 text-sm mt-2 font-medium">{errors.phoneNumber}</p>}
-                </div>
-              </div>
-
-              {/* Gender */}
-              <div className="mb-6">
-                <label className="block text-sm font-bold text-gray-800 mb-3">Gender</label>
-                <select
-                  name="gender"
-                  value={formData.gender}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 appearance-none bg-gray-50 focus:bg-white hover:bg-white border-gray-200 focus:border-blue-500 hover:border-gray-300 cursor-pointer"
-                >
-                  <option value="">Select Gender (Optional)</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Address Section */}
-            <div className="bg-green-50 p-6 rounded-2xl border border-green-200">
-              <h3 className="text-lg font-bold text-gray-800 mb-4">Address Information</h3>
-              
-              <div className="grid md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">Province *</label>
-                  <div className="relative">
-                    <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                    <select
-                      name="address.province"
-                      value={formData.address.province}
-                      onChange={handleInputChange}
-                      className={`w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 appearance-none bg-gray-50 focus:bg-white hover:bg-white cursor-pointer ${
-                        errors['address.province'] ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-blue-500 hover:border-gray-300'
-                      }`}
-                    >
-                      <option value="">Select Province</option>
-                      {nepaliProvinces.map(province => (
-                        <option key={province} value={province}>{province}</option>
+                    <label className="block text-[0.78rem] font-bold mb-2" style={{ color: 'var(--s700)' }}>Languages</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {['Nepali','English','Hindi','Maithili','Bhojpuri','Newari','Tamang'].map(l => (
+                        <motion.button key={l} type="button" onClick={() => toggle('languages', l)}
+                          className="px-3.5 py-2 rounded-[10px] text-[0.8rem] font-bold"
+                          style={{ background: form.languages.includes(l) ? 'var(--blue-600)' : 'var(--s50)', color: form.languages.includes(l) ? 'white' : 'var(--s600)',
+                            border: `2px solid ${form.languages.includes(l) ? 'var(--blue-600)' : 'var(--s200)'}` }}
+                          whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.96 }}>{l}</motion.button>
                       ))}
-                    </select>
+                    </div>
                   </div>
-                  {errors['address.province'] && <p className="text-red-500 text-sm mt-2 font-medium">{errors['address.province']}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">District *</label>
-                  <div className="relative">
-                    <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                    <select
-                      name="address.district"
-                      value={formData.address.district}
-                      onChange={handleInputChange}
-                      className={`w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 appearance-none bg-gray-50 focus:bg-white hover:bg-white cursor-pointer ${
-                        errors['address.district'] ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-blue-500 hover:border-gray-300'
-                      }`}
-                    >
-                      <option value="">Select District</option>
-                      {nepaliDistricts.map(district => (
-                        <option key={district} value={district}>{district}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {errors['address.district'] && <p className="text-red-500 text-sm mt-2 font-medium">{errors['address.district']}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">Municipality</label>
-                  <div className="relative">
-                    <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                    <input
-                      type="text"
-                      name="address.municipality"
-                      value={formData.address.municipality}
-                      onChange={handleInputChange}
-                      className="w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white border-gray-200 focus:border-blue-500 hover:border-gray-300"
-                      placeholder="Enter municipality"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Professional Information Section */}
-            <div className="bg-purple-50 p-6 rounded-2xl border border-purple-200">
-              <h3 className="text-lg font-bold text-gray-800 mb-4">Professional Information</h3>
-              
-              {/* License and NMC */}
-              <div className="grid md:grid-cols-2 gap-6 mb-6">
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">Medical License Number *</label>
-                  <div className="relative">
-                    <CheckCircle className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                    <input
-                      type="text"
-                      name="licenseNumber"
-                      value={formData.licenseNumber}
-                      onChange={handleInputChange}
-                      className={`w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white ${
-                        errors.licenseNumber ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-blue-500 hover:border-gray-300'
-                      }`}
-                      placeholder="Enter your medical license number"
-                    />
-                  </div>
-                  {errors.licenseNumber && <p className="text-red-500 text-sm mt-2 font-medium">{errors.licenseNumber}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">NMC Registration Number *</label>
-                  <div className="relative">
-                    <CheckCircle className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                    <input
-                      type="text"
-                      name="nmc_registration"
-                      value={formData.nmc_registration}
-                      onChange={handleInputChange}
-                      className={`w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white ${
-                        errors.nmc_registration ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-blue-500 hover:border-gray-300'
-                      }`}
-                      placeholder="Enter your NMC registration number"
-                    />
-                  </div>
-                  {errors.nmc_registration && <p className="text-red-500 text-sm mt-2 font-medium">{errors.nmc_registration}</p>}
-                </div>
-              </div>
-
-              {/* Specialization and Experience */}
-              <div className="grid md:grid-cols-2 gap-6 mb-6">
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">Primary Specialization *</label>
-                  <div className="relative">
-                    <Brain className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                    <select
-                      name="primarySpecialization"
-                      value={formData.primarySpecialization}
-                      onChange={handleInputChange}
-                      className={`w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 appearance-none bg-gray-50 focus:bg-white hover:bg-white cursor-pointer ${
-                        errors.primarySpecialization ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-blue-500 hover:border-gray-300'
-                      }`}
-                    >
-                      <option value="">Select Your Specialization</option>
-                      {specializations.map(spec => (
-                        <option key={spec} value={spec}>{spec}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {errors.primarySpecialization && <p className="text-red-500 text-sm mt-2 font-medium">{errors.primarySpecialization}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">Total Experience (Years) *</label>
-                  <div className="relative">
-                    <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                    <input
-                      type="number"
-                      name="totalExperience"
-                      value={formData.totalExperience}
-                      onChange={handleInputChange}
-                      min="0"
-                      max="60"
-                      className={`w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white ${
-                        errors.totalExperience ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-blue-500 hover:border-gray-300'
-                      }`}
-                      placeholder="Enter years of experience"
-                    />
-                  </div>
-                  {errors.totalExperience && <p className="text-red-500 text-sm mt-2 font-medium">{errors.totalExperience}</p>}
-                </div>
-              </div>
-
-              {/* Current Workplace */}
-              <div className="mb-6">
-                <label className="block text-sm font-bold text-gray-800 mb-3">Current Workplace *</label>
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="relative">
-                    <Building className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                    <input
-                      type="text"
-                      name="currentWorkplace.hospitalName"
-                      value={formData.currentWorkplace[0].hospitalName}
-                      onChange={handleInputChange}
-                      className={`w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white ${
-                        errors['currentWorkplace.hospitalName'] ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-blue-500 hover:border-gray-300'
-                      }`}
-                      placeholder="Hospital/Clinic Name"
-                    />
-                  </div>
-                  <div className="relative">
-                    <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                    <input
-                      type="text"
-                      name="currentWorkplace.position"
-                      value={formData.currentWorkplace[0].position}
-                      onChange={handleInputChange}
-                      className="w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white border-gray-200 focus:border-blue-500 hover:border-gray-300"
-                      placeholder="Your Position (Optional)"
-                    />
-                  </div>
-                </div>
-                {errors['currentWorkplace.hospitalName'] && <p className="text-red-500 text-sm mt-2 font-medium">{errors['currentWorkplace.hospitalName']}</p>}
-              </div>
-
-              {/* Languages Spoken */}
-              <div className="mb-6">
-                <label className="block text-sm font-bold text-gray-800 mb-3">Languages Spoken</label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {availableLanguages.map(language => (
-                    <label key={language} className="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.languagesSpoken.includes(language)}
-                        onChange={(e) => handleLanguageChange(language, e.target.checked)}
-                        className="h-5 w-5 text-blue-600 border-2 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <span className="text-sm font-medium text-gray-700">{language}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Consultation Fees Section */}
-            <div className="bg-yellow-50 p-6 rounded-2xl border border-yellow-200">
-              <h3 className="text-lg font-bold text-gray-800 mb-4">Consultation Fees (NPR)</h3>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">Video Call</label>
-                  <input
-                    type="number"
-                    name="consultationFee.video"
-                    value={formData.consultationFee.video}
-                    onChange={handleInputChange}
-                    min="0"
-                    className="w-full px-4 py-3 border-2 rounded-xl font-medium transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white border-gray-200 focus:border-blue-500 hover:border-gray-300"
-                    placeholder="500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">Audio Call</label>
-                  <input
-                    type="number"
-                    name="consultationFee.audio"
-                    value={formData.consultationFee.audio}
-                    onChange={handleInputChange}
-                    min="0"
-                    className="w-full px-4 py-3 border-2 rounded-xl font-medium transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white border-gray-200 focus:border-blue-500 hover:border-gray-300"
-                    placeholder="300"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">Chat</label>
-                  <input
-                    type="number"
-                    name="consultationFee.chat"
-                    value={formData.consultationFee.chat}
-                    onChange={handleInputChange}
-                    min="0"
-                    className="w-full px-4 py-3 border-2 rounded-xl font-medium transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white border-gray-200 focus:border-blue-500 hover:border-gray-300"
-                    placeholder="200"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">In-Person</label>
-                  <input
-                    type="number"
-                    name="consultationFee.inPerson"
-                    value={formData.consultationFee.inPerson}
-                    onChange={handleInputChange}
-                    min="0"
-                    className="w-full px-4 py-3 border-2 rounded-xl font-medium transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white border-gray-200 focus:border-blue-500 hover:border-gray-300"
-                    placeholder="800"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Bio Section */}
-            <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-200">
-              <h3 className="text-lg font-bold text-gray-800 mb-4">Professional Bio</h3>
-              <textarea
-                name="bio"
-                value={formData.bio}
-                onChange={handleInputChange}
-                rows="4"
-                maxLength="1000"
-                className="w-full px-4 py-4 border-2 rounded-2xl font-medium transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white border-gray-200 focus:border-blue-500 hover:border-gray-300 resize-none"
-                placeholder="Tell patients about yourself, your experience, and areas of expertise... (Optional, max 1000 characters)"
-              />
-              <div className="text-right text-sm text-gray-500 mt-2">
-                {formData.bio.length}/1000 characters
-              </div>
-            </div>
-
-            {/* Password Section */}
-            <div className="bg-red-50 p-6 rounded-2xl border border-red-200">
-              <h3 className="text-lg font-bold text-gray-800 mb-4">Account Security</h3>
-              
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">Password *</label>
-                  <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      name="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      className={`w-full pl-14 pr-16 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white ${
-                        errors.password ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-blue-500 hover:border-gray-300'
-                      }`}
-                      placeholder="Enter your password (min 6 characters)"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-300"
-                    >
-                      {showPassword ? <EyeOff className="w-6 h-6" /> : <Eye className="w-6 h-6" />}
-                    </button>
-                  </div>
-                  {errors.password && <p className="text-red-500 text-sm mt-2 font-medium">{errors.password}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">Confirm Password *</label>
-                  <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                    <input
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      name="confirmPassword"
-                      value={formData.confirmPassword}
-                      onChange={handleInputChange}
-                      className={`w-full pl-14 pr-16 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white ${
-                        errors.confirmPassword ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-blue-500 hover:border-gray-300'
-                      }`}
-                      placeholder="Confirm your password"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-300"
-                    >
-                      {showConfirmPassword ? <EyeOff className="w-6 h-6" /> : <Eye className="w-6 h-6" />}
-                    </button>
-                  </div>
-                  {errors.confirmPassword && <p className="text-red-500 text-sm mt-2 font-medium">{errors.confirmPassword}</p>}
-                </div>
-              </div>
-            </div>
-
-            {/* Terms and Conditions */}
-            <div className="flex items-start space-x-3 p-6 bg-emerald-50 rounded-2xl border-2 border-emerald-200">
-              <input
-                type="checkbox"
-                id="terms"
-                checked={termsAccepted}
-                onChange={(e) => setTermsAccepted(e.target.checked)}
-                className="mt-1 h-5 w-5 text-blue-600 border-2 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <div className="flex-1">
-                <label htmlFor="terms" className="text-sm text-gray-700 font-medium cursor-pointer">
-                  I agree to the{' '}
-                  <a href="#" className="text-emerald-600 hover:text-emerald-700 font-semibold underline">
-                    Medical Professional Terms
-                  </a>,{' '}
-                  <a href="#" className="text-emerald-600 hover:text-emerald-700 font-semibold underline">
-                    Terms of Service
-                  </a>{' '}
-                  and{' '}
-                  <a href="#" className="text-emerald-600 hover:text-emerald-700 font-semibold underline">
-                    Privacy Policy
-                  </a>
-                </label>
-                {errors.terms && <p className="text-red-500 text-sm mt-1 font-medium">{errors.terms}</p>}
-              </div>
-            </div>
-   <AvailabilityManager 
-  formData={formData}
-  setFormData={setFormData}
-  errors={errors}
-/>
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-5 px-6 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white"
-            >
-              <span>{isLoading ? 'Creating Account...' : 'Create Doctor Account'}</span>
-              {isLoading && (
-                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <Textarea icon={FileText} name="bio" value={form.bio} onChange={set} label="Professional Bio" placeholder="Brief summary shown to patients..." />
+                </motion.div>
               )}
-            </button>
+              {/* Step 3: Documents */}
+              {step === 3 && (
+                <motion.div key="d3" className="space-y-3" custom={dir} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+                  <div className="p-4 rounded-[14px] mb-1" style={{ background: 'var(--blue-50)', border: '1px solid var(--blue-100)' }}>
+                    <p className="text-[0.82rem] font-bold" style={{ color: 'var(--blue-700)' }}>Upload clear, legible documents</p>
+                    <p className="text-[0.72rem] mt-0.5" style={{ color: 'var(--blue-600)' }}>Verification takes 24-48 hours</p>
+                  </div>
+                  {[
+                    { key: 'profilePhoto', label: 'Professional Photo', desc: 'Clear headshot', icon: Camera },
+                    { key: 'nmcCertificate', label: 'NMC Certificate', desc: 'Valid NMC registration', icon: FileText },
+                    { key: 'degreeCertificate', label: 'Degree Certificate', desc: 'MBBS/MD/MS etc.', icon: GraduationCap },
+                    { key: 'governmentId', label: 'Government ID', desc: 'Citizenship or Passport', icon: Shield },
+                  ].map(doc => (
+                    <motion.label key={doc.key} className="flex items-center gap-3.5 p-3.5 rounded-[14px] cursor-pointer transition-all"
+                      style={{ background: form[doc.key] ? 'var(--blue-50)' : 'var(--s50)', border: `2px dashed ${form[doc.key] ? 'var(--blue-400)' : 'var(--s200)'}` }}
+                      whileHover={{ borderColor: 'var(--blue-400)', y: -2, boxShadow: '0 4px 16px rgba(37,99,235,0.06)' }}>
+                      <div className="w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0"
+                        style={{ background: form[doc.key] ? 'var(--blue-100)' : 'var(--s100)' }}>
+                        {form[doc.key] ? <CheckCircle size={16} style={{ color: 'var(--blue-600)' }} /> : <doc.icon size={16} style={{ color: 'var(--s500)' }} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[0.82rem] font-bold" style={{ color: 'var(--navy-800)' }}>{doc.label}</p>
+                        <p className="text-[0.7rem] truncate" style={{ color: form[doc.key] ? 'var(--blue-600)' : 'var(--s400)' }}>
+                          {form[doc.key] ? form[doc.key].name : doc.desc}
+                        </p>
+                      </div>
+                      <input type="file" className="hidden" accept="image/*,.pdf" onChange={(e) => setForm(p => ({ ...p, [doc.key]: e.target.files[0] }))} />
+                      <span className="text-[0.72rem] font-bold px-3 py-1.5 rounded-lg flex-shrink-0"
+                        style={{ background: form[doc.key] ? 'var(--blue-100)' : 'var(--s100)', color: form[doc.key] ? 'var(--blue-600)' : 'var(--s500)' }}>
+                        {form[doc.key] ? 'Change' : 'Upload'}
+                      </span>
+                    </motion.label>
+                  ))}
+                </motion.div>
+              )}
+              {/* Step 4: Security */}
+              {step === 4 && (
+                <motion.div key="d4" className="space-y-3" custom={dir} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+                  <div className="relative">
+                    <Input icon={Lock} type={showPwd ? 'text' : 'password'} name="password" value={form.password} onChange={set} placeholder="Min 8 characters" label="Password" required error={errors.password} />
+                    <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-9 p-1 rounded-lg hover:bg-gray-100" style={{ color: 'var(--s400)' }}>
+                      {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}</button>
+                  </div>
+                  <div className="relative">
+                    <Input icon={Lock} type={showConfirm ? 'text' : 'password'} name="confirmPassword" value={form.confirmPassword} onChange={set} placeholder="Re-enter" label="Confirm Password" required error={errors.confirmPassword} />
+                    <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-9 p-1 rounded-lg hover:bg-gray-100" style={{ color: 'var(--s400)' }}>
+                      {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}</button>
+                  </div>
+                  <motion.label className="flex items-start gap-3 p-3.5 rounded-[12px] cursor-pointer transition-all hover:border-blue-200"
+                    style={{ background: 'var(--s50)', border: `2px solid ${errors.terms ? '#FCA5A5' : 'var(--s200)'}` }}>
+                    <input type="checkbox" checked={termsOk} onChange={e => setTermsOk(e.target.checked)} className="mt-0.5 w-4 h-4 rounded accent-blue-600" />
+                    <span className="text-[0.8rem]" style={{ color: 'var(--s600)' }}>
+                      I agree to the <a href="#" className="font-bold" style={{ color: 'var(--blue-600)' }}>Doctor Agreement</a>, <a href="#" className="font-bold" style={{ color: 'var(--blue-600)' }}>Terms</a> and <a href="#" className="font-bold" style={{ color: 'var(--blue-600)' }}>Privacy Policy</a>
+                    </span>
+                  </motion.label>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-            {/* Navigation */}
-            <div className="text-center pt-6 space-y-2">
-              <p className="text-gray-600 font-medium">
-                Looking for patient care?{' '}
-                <Link 
-                    to="/home/PatientRegister" 
-                    className="text-emerald-600 underline hover:text-emerald-700 hover:no-underline"
-                >   
-                  Register as Patient
-                </Link>
-                <br />
-
-                Already have an account?{' '}
-                <Link 
-                    to="/home/Login" 
-                    className="text-emerald-600 underline hover:text-emerald-700 hover:no-underline"
-                >
-                  Sign In
-                </Link>
-              </p>
+            <div className="flex items-center justify-between mt-6 gap-3">
+              {step > 0 ? (
+                <motion.button type="button" onClick={prev} className="btn-secondary" style={{ padding: '11px 22px', fontSize: '0.88rem' }}
+                  whileHover={{ scale: 1.03, x: -3 }} whileTap={{ scale: 0.97 }}><ArrowLeft size={16} /> Back</motion.button>
+              ) : <div />}
+              {step < 4 ? (
+                <motion.button type="button" onClick={next} className="btn-primary" style={{ padding: '11px 26px', fontSize: '0.88rem' }}
+                  whileHover={{ scale: 1.03, boxShadow: '0 8px 24px -6px rgba(37,99,235,0.3)' }} whileTap={{ scale: 0.97 }}>Next <ArrowRight size={16} /></motion.button>
+              ) : (
+                <motion.button type="submit" disabled={loading} className="btn-primary" style={{ padding: '11px 26px', fontSize: '0.88rem', opacity: loading ? 0.7 : 1 }}
+                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                  {loading ? <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <>Submit Application <ArrowRight size={16} /></>}
+                </motion.button>
+              )}
             </div>
           </form>
-
         </div>
-      </div>
+
+        <div className="text-center mt-5 space-y-1.5">
+          <p className="text-[0.85rem]" style={{ color: 'var(--s500)' }}>Are you a patient? <Link to="/home/PatientRegister" className="font-bold hover:text-blue-800 transition-colors" style={{ color: 'var(--blue-600)' }}>Register here</Link></p>
+          <p className="text-[0.85rem]" style={{ color: 'var(--s500)' }}>Already registered? <Link to="/home/Login" className="font-bold hover:text-blue-800 transition-colors" style={{ color: 'var(--blue-600)' }}>Sign In</Link></p>
+          <div className="flex items-center justify-center gap-2 text-[0.75rem] pt-1" style={{ color: 'var(--s400)' }}><Shield size={13} /><span>256-bit SSL · HIPAA aligned</span></div>
+        </div>
+      </motion.div>
     </div>
   );
-};
-
-export default DoctorRegister;
+}

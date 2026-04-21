@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, Star, MapPin, Clock, Video, Phone, Calendar, ChevronDown, ArrowLeft, CheckCircle, X, User, FileText, AlertTriangle, MessageCircle } from 'lucide-react';
+import { getDoctorsList, bookAppointment } from '../../utils/firestoreAPI';
+import { useAuth } from '../Auth/AuthContext';
 
 // Booking Form Component
 const AppointmentBookingForm = ({ doctor, onBack, onBookingSuccess }) => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     scheduledDateTime: '',
     consultationType: 'video',
@@ -17,8 +20,6 @@ const AppointmentBookingForm = ({ doctor, onBack, onBookingSuccess }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loadingAvailability, setLoadingAvailability] = useState(false);
-
-  const API_BASE_URL = "http://localhost:8000";
 
   // Get today's date in YYYY-MM-DD format
   const today = new Date().toISOString().split('T')[0];
@@ -45,33 +46,18 @@ const AppointmentBookingForm = ({ doctor, onBack, onBookingSuccess }) => {
   }, [selectedDate, doctor?.userId]);
 
   const fetchAvailableSlots = async (date) => {
+    // Note: To implement real availability slots from Firestore later.
+    // For now, generating mockup available times for demo purposes:
     setLoadingAvailability(true);
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/appointments/doctor/${doctor.userId}/availability?date=${date}`,
-        {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch availability');
-      }
-
-      const result = await response.json();
-      if (result.status === 'success') {
-        setAvailableSlots(result.data.slots || []);
-      }
-    } catch (error) {
-      console.error('Error fetching availability:', error);
-      setError('Failed to load available time slots');
-    } finally {
-      setLoadingAvailability(false);
-    }
+    setTimeout(() => {
+        setAvailableSlots([
+            { datetime: `${date}T10:00:00`, time: '10:00 AM' },
+            { datetime: `${date}T10:30:00`, time: '10:30 AM' },
+            { datetime: `${date}T14:00:00`, time: '02:00 PM' },
+            { datetime: `${date}T15:30:00`, time: '03:30 PM' },
+        ]);
+        setLoadingAvailability(false);
+    }, 500);
   };
 
   const handleDateChange = (date) => {
@@ -114,32 +100,29 @@ const AppointmentBookingForm = ({ doctor, onBack, onBookingSuccess }) => {
       const filteredSymptoms = formData.symptoms.filter(symptom => symptom.trim() !== '');
 
       const bookingData = {
-        doctorUserId: doctor.userId,
-        scheduledDateTime: formData.scheduledDateTime,
+        doctorId: doctor.id,
+        doctorName: `${doctor.firstName} ${doctor.lastName}`,
+        specialization: doctor.specialization || 'General',
+        patientId: user.uid,
+        patientName: user.displayName || 'Patient',
+        date: formData.scheduledDateTime.split('T')[0] || selectedDate,
+        time: formData.scheduledDateTime.split('T')[1]?.substring(0, 5) || '10:00',
         consultationType: formData.consultationType,
         reason: formData.reason,
         symptoms: filteredSymptoms,
-        priority: formData.priority
+        priority: formData.priority,
+        type: formData.consultationType
       };
 
-      const response = await fetch(`${API_BASE_URL}/api/appointments/book`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(bookingData)
-      });
+      const result = await bookAppointment(bookingData);
 
-      const result = await response.json();
-
-      if (response.ok && result.status === 'success') {
+      if (result.success) {
         setSuccess('Appointment booked successfully!');
         setTimeout(() => {
-          onBookingSuccess && onBookingSuccess(result.data.appointment);
+          onBookingSuccess && onBookingSuccess(result.data.id);
         }, 2000);
       } else {
-        setError(result.message || 'Failed to book appointment');
+        setError(result.error || 'Failed to book appointment');
       }
     } catch (error) {
       console.error('Error booking appointment:', error);
@@ -184,12 +167,12 @@ const AppointmentBookingForm = ({ doctor, onBack, onBookingSuccess }) => {
         <div className="bg-white rounded-3xl p-6 shadow-lg mb-8">
           <div className="flex items-center space-x-4">
             <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center text-white font-bold text-xl">
-              {doctor?.user?.firstName?.charAt(0)}
+              {doctor?.firstName?.charAt(0)}
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Book Appointment</h1>
-              <p className="text-emerald-600 font-semibold">Dr. {doctor?.user?.firstName} {doctor?.user?.lastName}</p>
-              <p className="text-gray-600">{doctor?.primarySpecialization}</p>
+              <p className="text-emerald-600 font-semibold">Dr. {doctor?.firstName} {doctor?.lastName}</p>
+              <p className="text-gray-600">{doctor?.specialization}</p>
             </div>
           </div>
         </div>
@@ -433,31 +416,16 @@ const DoctorsList = ({ onNavigate = () => {} }) => {
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState(null);
 
-  const API_BASE_URL = "http://localhost:8000";
-
   useEffect(() => {
     const fetchDoctors = async () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`${API_BASE_URL}/api/doctors`, {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        if (result.data && result.status == 'success') {
-          setDoctors(result.data.doctors);
+        const result = await getDoctorsList();
+        if (result.success) {
+          setDoctors(result.data);
         } else {
-          throw new Error('Invalid API response format');
+          throw new Error(result.error);
         }
       } catch (err) {
         console.error('Error fetching doctors:', err);
@@ -536,11 +504,11 @@ const DoctorsList = ({ onNavigate = () => {} }) => {
   const filters = [
     { id: 'all', label: 'All Doctors', count: doctors.length },
     { id: 'available', label: 'Available Now', count: doctors.filter(d => d.isOnline).length },
-    { id: 'cardiology', label: 'Cardiology', count: doctors.filter(d => d.primarySpecialization?.toLowerCase().includes('cardiology')).length },
-    { id: 'surgery', label: 'Surgery', count: doctors.filter(d => d.primarySpecialization?.toLowerCase().includes('surgery')).length },
-    { id: 'gastroenterology', label: 'Gastroenterology', count: doctors.filter(d => d.primarySpecialization?.toLowerCase().includes('gastroenterology')).length },
-    { id: 'ent', label: 'ENT', count: doctors.filter(d => d.primarySpecialization?.toLowerCase().includes('ent')).length },
-    { id: 'dentistry', label: 'Dentistry', count: doctors.filter(d => d.primarySpecialization?.toLowerCase().includes('dentistry')).length },
+    { id: 'cardiology', label: 'Cardiology', count: doctors.filter(d => d.specialization?.toLowerCase().includes('cardiology')).length },
+    { id: 'surgery', label: 'Surgery', count: doctors.filter(d => d.specialization?.toLowerCase().includes('surgery')).length },
+    { id: 'gastroenterology', label: 'Gastroenterology', count: doctors.filter(d => d.specialization?.toLowerCase().includes('gastroenterology')).length },
+    { id: 'ent', label: 'ENT', count: doctors.filter(d => d.specialization?.toLowerCase().includes('ent')).length },
+    { id: 'dentistry', label: 'Dentistry', count: doctors.filter(d => d.specialization?.toLowerCase().includes('dentistry')).length },
   ];
 
   const sortOptions = [
@@ -553,15 +521,15 @@ const DoctorsList = ({ onNavigate = () => {} }) => {
   // Filter and search doctors
   const filteredDoctors = doctors.filter(doctor => {
     const matchesSearch = !searchQuery ||
-      doctor.user.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doctor.user.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doctor.primarySpecialization.toLowerCase().includes(searchQuery.toLowerCase());
+      doctor.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doctor.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doctor.specialization?.toLowerCase().includes(searchQuery.toLowerCase());
 
     if (selectedFilter === 'all') return matchesSearch;
     if (selectedFilter === 'available') return matchesSearch && doctor.isOnline;
 
     // Filter by specialty
-    return matchesSearch && doctor.primarySpecialization?.toLowerCase().includes(selectedFilter);
+    return matchesSearch && doctor.specialization?.toLowerCase().includes(selectedFilter);
   });
 
   // Sort doctors
@@ -570,9 +538,9 @@ const DoctorsList = ({ onNavigate = () => {} }) => {
       case 'rating':
         return (b.averageRating || 0) - (a.averageRating || 0);
       case 'experience':
-        return (b.totalExperience || 0) - (a.totalExperience || 0);
+        return (Number(b.yearsExperience) || 0) - (Number(a.yearsExperience) || 0);
       case 'name':
-        return `${a.user.firstName} ${a.user.lastName}`.localeCompare(`${b.user.firstName} ${b.user.lastName}`);
+        return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
       case 'online':
         return (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0);
       default:
@@ -709,7 +677,7 @@ const DoctorCard = ({ doctor, onBookAppointment }) => {
         <div className="flex items-center space-x-4 mb-4">
           <div className="relative">
             <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center text-white font-bold text-xl">
-              {doctor.user.firstName?.charAt(0)}{doctor.user.lastName?.charAt(0)}
+              {doctor.firstName?.charAt(0)}{doctor.lastName?.charAt(0)}
             </div>
             {doctor.isOnline && (
               <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 border-2 border-white rounded-full"></div>
@@ -717,13 +685,13 @@ const DoctorCard = ({ doctor, onBookAppointment }) => {
           </div>
           <div className="flex-1">
             <h3 className="text-lg font-bold text-gray-900">
-              Dr. {doctor.user.firstName} {doctor.user.lastName}
+              Dr. {doctor.firstName} {doctor.lastName}
             </h3>
-            <p className="text-emerald-600 font-medium">{doctor.primarySpecialization}</p>
+            <p className="text-emerald-600 font-medium">{doctor.specialization}</p>
             <div className="flex items-center space-x-1 mt-1">
               {getRatingStars(doctor.averageRating)}
               <span className="text-sm text-gray-600 ml-1">
-                ({doctor.averageRating?.toFixed(1) || '0.0'}) • {doctor.totalReviews} reviews
+                ({doctor.averageRating?.toFixed(1) || '0.0'}) • {doctor.totalReviews || 0} reviews
               </span>
             </div>
           </div>
@@ -733,12 +701,12 @@ const DoctorCard = ({ doctor, onBookAppointment }) => {
         <div className="space-y-3 mb-6">
           <div className="flex items-center space-x-2 text-gray-600">
             <MapPin className="w-4 h-4" />
-            <span className="text-sm">{getLocationString(doctor.user.address)}</span>
+            <span className="text-sm">{getLocationString(doctor.address) || doctor.currentHospital}</span>
           </div>
           <div className="flex items-center space-x-2 text-gray-600">
             <Clock className="w-4 h-4" />
             <span className="text-sm">
-              {doctor.totalExperience} years experience
+              {doctor.yearsExperience || 0} years experience
             </span>
           </div>
           <div className="flex items-center space-x-2">
@@ -750,14 +718,11 @@ const DoctorCard = ({ doctor, onBookAppointment }) => {
         </div>
 
         {/* Current Workplace */}
-        {doctor.currentWorkplace && doctor.currentWorkplace.length > 0 && (
+        {doctor.currentHospital && (
           <div className="mb-6">
             <p className="text-xs font-medium text-gray-500 mb-2">CURRENT WORKPLACE</p>
             <div className="bg-gray-50 rounded-xl p-3">
-              <p className="font-semibold text-gray-900">{doctor.currentWorkplace[0].hospitalName}</p>
-              {doctor.currentWorkplace[0].position && (
-                <p className="text-sm text-gray-600">{doctor.currentWorkplace[0].position}</p>
-              )}
+              <p className="font-semibold text-gray-900">{doctor.currentHospital}</p>
             </div>
           </div>
         )}
@@ -772,16 +737,16 @@ const DoctorCard = ({ doctor, onBookAppointment }) => {
         )}
 
         {/* Languages */}
-        {doctor.languagesSpoken && doctor.languagesSpoken.length > 0 && (
+        {doctor.languages && doctor.languages.length > 0 && (
           <div className="mb-6">
             <p className="text-xs font-medium text-gray-500 mb-2">LANGUAGES</p>
             <div className="flex flex-wrap gap-2">
-              {doctor.languagesSpoken.map((language, index) => (
+              {doctor.languages.map((language, index) => (
                 <span
                   key={index}
                   className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-lg font-medium"
                 >
-                  {language}
+                  {language.value || language}
                 </span>
               ))}
             </div>
@@ -793,28 +758,16 @@ const DoctorCard = ({ doctor, onBookAppointment }) => {
           <div className="mb-6">
             <p className="text-xs font-medium text-gray-500 mb-2">CONSULTATION FEES</p>
             <div className="grid grid-cols-2 gap-2">
-              {doctor.consultationFee.video && (
+              {(doctor.consultTypes?.some(c => c.value === 'video' || c === 'video')) && (
                 <div className="bg-emerald-50 rounded-lg p-2">
                   <p className="text-xs text-emerald-600 font-medium">Video</p>
-                  <p className="text-sm font-bold text-gray-900">Rs. {doctor.consultationFee.video}</p>
+                  <p className="text-sm font-bold text-gray-900">Rs. {doctor.consultationFee}</p>
                 </div>
               )}
-              {doctor.consultationFee.audio && (
+              {(doctor.consultTypes?.some(c => c.value === 'audio' || c === 'audio')) && (
                 <div className="bg-blue-50 rounded-lg p-2">
                   <p className="text-xs text-blue-600 font-medium">Audio</p>
-                  <p className="text-sm font-bold text-gray-900">Rs. {doctor.consultationFee.audio}</p>
-                </div>
-              )}
-              {doctor.consultationFee.chat && (
-                <div className="bg-purple-50 rounded-lg p-2">
-                  <p className="text-xs text-purple-600 font-medium">Chat</p>
-                  <p className="text-sm font-bold text-gray-900">Rs. {doctor.consultationFee.chat}</p>
-                </div>
-              )}
-              {doctor.consultationFee.inPerson && (
-                <div className="bg-orange-50 rounded-lg p-2">
-                  <p className="text-xs text-orange-600 font-medium">In Person</p>
-                  <p className="text-sm font-bold text-gray-900">Rs. {doctor.consultationFee.inPerson}</p>
+                  <p className="text-sm font-bold text-gray-900">Rs. {doctor.consultationFee}</p>
                 </div>
               )}
             </div>
@@ -831,22 +784,16 @@ const DoctorCard = ({ doctor, onBookAppointment }) => {
           </button>
 
           <div className="flex space-x-2">
-            {doctor.consultationFee?.video && (
+            {(doctor.consultTypes?.some(c => c.value === 'video' || c === 'video')) && (
               <button className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-xl font-medium transition-colors flex items-center justify-center space-x-2">
                 <Video className="w-4 h-4" />
                 <span>Video</span>
               </button>
             )}
-            {doctor.consultationFee?.audio && (
+            {(doctor.consultTypes?.some(c => c.value === 'audio' || c === 'audio')) && (
               <button className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-xl font-medium transition-colors flex items-center justify-center space-x-2">
                 <Phone className="w-4 h-4" />
                 <span>Call</span>
-              </button>
-            )}
-            {doctor.consultationFee?.chat && (
-              <button className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-xl font-medium transition-colors flex items-center justify-center space-x-2">
-                <MessageCircle className="w-4 h-4" />
-                <span>Chat</span>
               </button>
             )}
           </div>

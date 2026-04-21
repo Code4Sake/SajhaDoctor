@@ -1,754 +1,298 @@
 import React, { useState } from 'react';
-import { 
-  Eye, 
-  EyeOff, 
-  Mail, 
-  Lock, 
-  User, 
-  Phone, 
-  MapPin,
-  Heart,
-  Clock,
-  Shield,
-  Award,
-  Users,
-  CheckCircle,
-  Calendar,
-  UserCheck
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Eye, EyeOff, Mail, Lock, User, Phone, MapPin, Heart, Clock, Shield,
+  CheckCircle, Calendar, UserCheck, ArrowRight, ArrowLeft, ChevronDown
 } from 'lucide-react';
-import { Link } from 'react-router';
-import { authAPI, handleApiError, utils } from '../../utils/api';
+import { Link, useNavigate } from 'react-router';
+import { useAuth } from './AuthContext';
+
+// Inline phone formatter (previously from api.js)
+const utils = {
+  formatNepalPhoneNumber: (phone) => {
+    if (!phone) return '';
+    const digits = phone.replace(/\D/g, '');
+    if (digits.startsWith('977')) return '+' + digits;
+    if (digits.startsWith('0')) return '+977' + digits.slice(1);
+    return '+977' + digits;
+  },
+};
+
+/* ═══ Animated Input ═══ */
+const Input = ({ icon: Icon, error, label, required, ...props }) => {
+  const [focused, setFocused] = useState(false);
+  return (
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+      {label && <label className="block text-[0.78rem] font-bold mb-1.5" style={{ color: 'var(--s700)' }}>{label}{required && ' *'}</label>}
+      <motion.div className="relative" animate={{ scale: focused ? 1.008 : 1 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+        <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[17px] h-[17px] transition-colors duration-300"
+          style={{ color: focused ? 'var(--blue-600)' : error ? '#EF4444' : 'var(--s400)' }} />
+        <input {...props}
+          className="w-full pl-10 pr-4 py-3.5 rounded-[12px] text-[0.9rem] font-medium outline-none transition-all duration-300"
+          style={{ background: focused ? 'white' : 'var(--s50)', border: `2px solid ${error ? '#FCA5A5' : focused ? 'var(--blue-500)' : 'var(--s200)'}`,
+            color: 'var(--navy-800)', boxShadow: focused ? '0 0 0 4px rgba(37,99,235,0.06)' : 'none' }}
+          onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} />
+      </motion.div>
+      <AnimatePresence>
+        {error && <motion.p className="text-[0.72rem] font-medium mt-1" style={{ color: '#EF4444' }}
+          initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>{error}</motion.p>}
+      </AnimatePresence>
+    </motion.div>
+  );
+};
+
+const Select = ({ icon: Icon, label, children, ...props }) => {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div>
+      {label && <label className="block text-[0.78rem] font-bold mb-1.5" style={{ color: 'var(--s700)' }}>{label}</label>}
+      <motion.div className="relative" animate={{ scale: focused ? 1.008 : 1 }}>
+        <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[17px] h-[17px]" style={{ color: focused ? 'var(--blue-600)' : 'var(--s400)' }} />
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--s400)' }} />
+        <select {...props}
+          className="w-full pl-10 pr-9 py-3.5 rounded-[12px] text-[0.9rem] font-medium outline-none appearance-none cursor-pointer transition-all duration-300"
+          style={{ background: focused ? 'white' : 'var(--s50)', border: `2px solid ${focused ? 'var(--blue-500)' : 'var(--s200)'}`, color: 'var(--navy-800)' }}
+          onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}>{children}</select>
+      </motion.div>
+    </div>
+  );
+};
+
+/* ═══ Steps ═══ */
+const Steps = ({ current }) => (
+  <div className="flex items-center gap-2 mb-6">
+    {['Personal Info', 'Address & Emergency', 'Security'].map((s, i) => (
+      <React.Fragment key={s}>
+        <motion.div className="flex items-center gap-1.5"
+          animate={{ scale: i === current ? 1.05 : 1 }}>
+          <motion.div className="w-7 h-7 rounded-full flex items-center justify-center text-[0.7rem] font-bold"
+            animate={{ background: i <= current ? 'var(--blue-600)' : 'var(--s100)', color: i <= current ? 'white' : 'var(--s400)' }}>
+            {i < current ? '✓' : i + 1}
+          </motion.div>
+          <span className="text-[0.7rem] font-bold hidden sm:inline" style={{ color: i <= current ? 'var(--navy-800)' : 'var(--s400)' }}>{s}</span>
+        </motion.div>
+        {i < 2 && <motion.div className="flex-1 h-[2px] rounded-full" animate={{ background: i < current ? 'var(--blue-600)' : 'var(--s200)' }} />}
+      </React.Fragment>
+    ))}
+  </div>
+);
+
+const slideVariants = {
+  enter: (d) => ({ x: d > 0 ? 50 : -50, opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit: (d) => ({ x: d > 0 ? -50 : 50, opacity: 0 }),
+};
 
 const PatientRegister = () => {
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
-  const [registrationSuccess, setRegistrationSuccess] = useState(false);
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    phoneNumber: '',
-    dateOfBirth: '',
-    gender: '',
-    address: {
-      province: '',
-      district: '',
-      municipality: ''
-    },
-    emergencyContact: {
-      name: '',
-      relationship: '',
-      phoneNumber: '',
-      email: ''
-    }
+  const [step, setStep] = useState(0);
+  const [dir, setDir] = useState(1);
+  const [showPwd, setShowPwd] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [termsOk, setTermsOk] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [form, setForm] = useState({
+    firstName: '', lastName: '', email: '', password: '', confirmPassword: '',
+    phoneNumber: '', dateOfBirth: '', gender: '',
+    address: { province: '', district: '', municipality: '' },
+    emergencyContact: { name: '', relationship: '', phoneNumber: '', email: '' }
   });
   const [errors, setErrors] = useState({});
 
-  const handleInputChange = (e) => {
+  const set = (e) => {
     const { name, value } = e.target;
-    
-    // Handle nested objects for address and emergencyContact
-    if (name.includes('.')) {
-      const [parent, child] = name.split('.');
-      setFormData(prev => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent],
-          [child]: value
-        }
-      }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
-    
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
+    if (name.includes('.')) { const [p, c] = name.split('.'); setForm(prev => ({ ...prev, [p]: { ...prev[p], [c]: value } })); }
+    else setForm(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
-  const validateForm = () => {
-    const newErrors = {};
-    
-    // Basic validation
-    if (!formData.firstName) newErrors.firstName = 'First name is required';
-    if (!formData.lastName) newErrors.lastName = 'Last name is required';
-    if (!formData.email) newErrors.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email format';
-    
-    if (!formData.password) newErrors.password = 'Password is required';
-    else if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
-    else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
-      newErrors.password = 'Password must contain at least one lowercase, uppercase, and number';
+  const validate = () => {
+    const err = {};
+    if (step === 0) {
+      if (!form.firstName) err.firstName = 'Required'; if (!form.lastName) err.lastName = 'Required';
+      if (!form.email) err.email = 'Required'; else if (!/\S+@\S+\.\S+/.test(form.email)) err.email = 'Invalid';
+      if (!form.phoneNumber) err.phoneNumber = 'Required';
     }
-    
-    if (!formData.confirmPassword) newErrors.confirmPassword = 'Please confirm your password';
-    else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
+    if (step === 2) {
+      if (!form.password) err.password = 'Required'; else if (form.password.length < 6) err.password = 'Min 6 chars';
+      else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(form.password)) err.password = 'Need upper, lower & number';
+      if (form.password !== form.confirmPassword) err.confirmPassword = "Don't match";
+      if (!termsOk) err.terms = 'Required';
     }
-    
-    if (!formData.phoneNumber) newErrors.phoneNumber = 'Phone number is required';
-    else if (!/^(\+977)?[0-9]{10}$/.test(formData.phoneNumber)) {
-      newErrors.phoneNumber = 'Please provide a valid Nepali phone number';
-    }
-    
-    if (!termsAccepted) newErrors.terms = 'You must accept the terms and conditions';
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setErrors(err); return !Object.keys(err).length;
   };
 
-  const removeUndefinedValues = (obj) => {
-  const cleaned = {};
-  
-  for (const [key, value] of Object.entries(obj)) {
-    if (value !== undefined && value !== null && value !== '') {
-      if (typeof value === 'object' && !Array.isArray(value)) {
-        const cleanedNested = removeUndefinedValues(value);
-        if (Object.keys(cleanedNested).length > 0) {
-          cleaned[key] = cleanedNested;
-        }
-      } else {
-        cleaned[key] = value;
-      }
-    }
-  }
-  
-  return cleaned;
-};
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-    
-    setIsLoading(true);
-    setErrors({});
-    
+  const next = () => { if (validate()) { setDir(1); setStep(s => Math.min(s + 1, 2)); } };
+  const prev = () => { setDir(-1); setStep(s => Math.max(s - 1, 0)); };
+
+  const navigate = useNavigate();
+  const { registerPatient: firebaseRegister } = useAuth();
+
+  const removeUndefined = (obj) => { const r = {}; for (const [k, v] of Object.entries(obj)) { if (v !== undefined && v !== null && v !== '') { if (typeof v === 'object' && !Array.isArray(v)) { const c = removeUndefined(v); if (Object.keys(c).length) r[k] = c; } else r[k] = v; } } return r; };
+
+  const submit = async (e) => {
+    e.preventDefault(); if (!validate()) return;
+    setLoading(true); setErrors({});
     try {
-      // Clean and format the data
-      const formattedData = {
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
-        email: formData.email.trim().toLowerCase(),
-        password: formData.password,
-        phoneNumber: utils.formatNepalPhoneNumber(formData.phoneNumber),
-        dateOfBirth: formData.dateOfBirth || undefined,
-        gender: formData.gender || undefined,
-        address: {
-          province: formData.address.province || undefined,
-          district: formData.address.district || undefined,
-          municipality: formData.address.municipality || undefined
-        },
-        emergencyContact: {
-          name: formData.emergencyContact.name || undefined,
-          relationship: formData.emergencyContact.relationship || undefined,
-          phoneNumber: formData.emergencyContact.phoneNumber ? 
-            utils.formatNepalPhoneNumber(formData.emergencyContact.phoneNumber) : undefined,
-          email: formData.emergencyContact.email || undefined
-        }
-      };
-
-      // Remove undefined values
-      const cleanData = removeUndefinedValues(formattedData);
-      
-      console.log('=== DEBUG: Registration Data ===');
-      console.log('Original form data:', formData);
-      console.log('Formatted data being sent:', cleanData);
-      console.log('JSON stringify:', JSON.stringify(cleanData, null, 2));
-
-      const result = await authAPI.registerPatient(cleanData);
-      console.log('=== DEBUG: API Response ===');
-      console.log('Full result:', result);
-
-      if (result.success) {
-        setRegistrationSuccess(true);
-        console.log('Registration successful:', result.data);
-      } else {
-        console.error('=== DEBUG: API Error ===');
-        console.error('Error details:', result.error);
-        
-        // Handle specific validation errors
-        if (result.error?.errors && Array.isArray(result.error.errors)) {
-          const fieldErrors = {};
-          result.error.errors.forEach(error => {
-            if (error.field) {
-              fieldErrors[error.field] = error.message;
-            }
-          });
-          setErrors(fieldErrors);
-        } else {
-          setErrors({ 
-            general: result.error?.message || 'Registration failed. Please check your information and try again.' 
-          });
-        }
-      }
-    } catch (error) {
-      console.error('=== DEBUG: Network Error ===');
-      console.error('Full error object:', error);
-      console.error('Error message:', error.message);
-      console.error('Error response:', error.response);
-      
-      if (error.response?.data) {
-        console.error('Server error response:', error.response.data);
-        setErrors({ 
-          general: error.response.data.message || 'Server error. Please try again.' 
-        });
-      } else {
-        setErrors({ general: 'Network error. Please check your connection and try again.' });
-      }
-    } finally {
-      setIsLoading(false);
-    }
+      const data = removeUndefined({ firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email.trim().toLowerCase(), password: form.password,
+        phoneNumber: utils.formatNepalPhoneNumber(form.phoneNumber), dateOfBirth: form.dateOfBirth || undefined, gender: form.gender || undefined,
+        address: { province: form.address.province, district: form.address.district, municipality: form.address.municipality },
+        emergencyContact: { name: form.emergencyContact.name, relationship: form.emergencyContact.relationship,
+          phoneNumber: form.emergencyContact.phoneNumber ? utils.formatNepalPhoneNumber(form.emergencyContact.phoneNumber) : undefined, email: form.emergencyContact.email }
+      });
+      const result = await firebaseRegister(data);
+      if (result.success) setSuccess(true);
+      else setErrors({ general: result.error });
+    } catch (error) { setErrors({ general: 'Network error. Please try again.' }); }
+    finally { setLoading(false); }
   };
 
-  const handleGoogleAuth = () => {
-    setIsLoading(true);
-    // Redirect to Google OAuth endpoint
-    window.location.href = '/api/auth/google';
-  };
+  const provinces = ['Province 1','Madhesh Province','Bagmati Province','Gandaki Province','Lumbini Province','Karnali Province','Sudurpashchim Province'];
+  const districts = ['Achham','Arghakhanchi','Baglung','Baitadi','Bajhang','Bajura','Banke','Bara','Bardiya','Bhaktapur','Bhojpur','Chitwan','Dadeldhura','Dailekh','Dang','Darchula','Dhading','Dhankuta','Dhanusa','Dolakha','Dolpa','Doti','Gorkha','Gulmi','Humla','Ilam','Jajarkot','Jhapa','Jumla','Kailali','Kalikot','Kanchanpur','Kapilvastu','Kaski','Kathmandu','Kavrepalanchok','Khotang','Lalitpur','Lamjung','Mahottari','Makwanpur','Manang','Morang','Mugu','Mustang','Myagdi','Nawalparasi East','Nawalparasi West','Nuwakot','Okhaldhunga','Palpa','Panchthar','Parbat','Parsa','Pyuthan','Ramechhap','Rasuwa','Rautahat','Rolpa','Rukum East','Rukum West','Rupandehi','Salyan','Sankhuwasabha','Saptari','Sarlahi','Sindhuli','Sindhupalchok','Siraha','Solukhumbu','Sunsari','Surkhet','Syangja','Tanahun','Taplejung','Terhathum','Udayapur'];
 
-  const nepaliProvinces = [
-    'Province 1', 'Madhesh Province', 'Bagmati Province',
-    'Gandaki Province', 'Lumbini Province', 'Karnali Province',
-    'Sudurpashchim Province'
-  ];
-
-  const nepaliDistricts = [
-    'Achham', 'Arghakhanchi', 'Baglung', 'Baitadi', 'Bajhang', 'Bajura', 'Banke', 
-    'Bara', 'Bardiya', 'Bhaktapur', 'Bhojpur', 'Chitwan', 'Dadeldhura', 'Dailekh', 
-    'Dang', 'Darchula', 'Dhading', 'Dhankuta', 'Dhanusa', 'Dolakha', 'Dolpa', 
-    'Doti', 'Gorkha', 'Gulmi', 'Humla', 'Ilam', 'Jajarkot', 'Jhapa', 'Jumla', 
-    'Kailali', 'Kalikot', 'Kanchanpur', 'Kapilvastu', 'Kaski', 'Kathmandu', 
-    'Kavrepalanchok', 'Khotang', 'Lalitpur', 'Lamjung', 'Mahottari', 'Makwanpur', 
-    'Manang', 'Morang', 'Mugu', 'Mustang', 'Myagdi', 'Nawalparasi East', 
-    'Nawalparasi West', 'Nuwakot', 'Okhaldhunga', 'Palpa', 'Panchthar', 'Parbat', 
-    'Parsa', 'Pyuthan', 'Ramechhap', 'Rasuwa', 'Rautahat', 'Rolpa', 'Rukum East', 
-    'Rukum West', 'Rupandehi', 'Salyan', 'Sankhuwasabha', 'Saptari', 'Sarlahi', 
-    'Sindhuli', 'Sindhupalchok', 'Siraha', 'Solukhumbu', 'Sunsari', 'Surkhet', 
-    'Syangja', 'Tanahun', 'Taplejung', 'Terhathum', 'Udayapur'
-  ];
-
-  const benefits = [
-    { 
-      icon: Clock, 
-      title: "24/7 Access", 
-      desc: "Round-the-clock healthcare support",
-      gradient: "from-emerald-500 to-teal-500"
-    },
-    { 
-      icon: Shield, 
-      title: "Secure Platform", 
-      desc: "End-to-end encrypted consultations",
-      gradient: "from-blue-500 to-indigo-500"
-    },
-    { 
-      icon: Award, 
-      title: "Verified Doctors", 
-      desc: "NMC licensed medical professionals",
-      gradient: "from-purple-500 to-pink-500"
-    }
-  ];
-
-  if (registrationSuccess) {
+  if (success) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
-        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 text-center">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="w-10 h-10 text-green-600" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Registration Successful!</h1>
-          <p className="text-gray-600 mb-6">
-            Please check your email to verify your account before signing in.
-          </p>
-          <Link
-            to="/home/Login"
-            className="w-full py-3 px-6 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-colors inline-block"
-          >
-            Go to Sign In
-          </Link>
-        </div>
+      <div className="min-h-screen flex items-center justify-center p-8" style={{ background: 'var(--s50)' }}>
+        <motion.div className="max-w-md w-full rounded-[24px] p-10 text-center"
+          style={{ background: 'white', boxShadow: '0 24px 64px -16px rgba(15,23,42,0.1)', border: '1px solid var(--s100)' }}
+          initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: 'spring', stiffness: 200, damping: 20 }}>
+          <motion.div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
+            style={{ background: 'var(--blue-50)' }}
+            initial={{ scale: 0, rotate: -180 }} animate={{ scale: 1, rotate: 0 }} transition={{ delay: 0.2, type: 'spring' }}>
+            <CheckCircle size={28} style={{ color: 'var(--blue-600)' }} />
+          </motion.div>
+          <h2 className="text-[1.5rem] font-extrabold mb-3" style={{ color: 'var(--navy-800)' }}>Registration Successful!</h2>
+          <p className="text-[0.9rem] mb-6" style={{ color: 'var(--s500)' }}>Check your email to verify your account.</p>
+          <Link to="/home/Login"><motion.button className="btn-primary" whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>Go to Sign In <ArrowRight size={18} /></motion.button></Link>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="flex min-h-screen">
-        
-        {/* Left Side - Enhanced Branding */}
-        <div className="hidden lg:flex lg:w-2/5 bg-gradient-to-br from-emerald-600 via-teal-600 to-blue-600 p-12 flex-col justify-between text-white relative overflow-hidden">
-          
-          {/* Enhanced Background Effects */}
-          <div className="absolute inset-0">
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 via-teal-500/30 to-blue-500/20"></div>
-            <div className="absolute top-0 left-0 w-96 h-96 bg-white/10 rounded-full -translate-x-48 -translate-y-48 animate-pulse"></div>
-            <div className="absolute bottom-0 right-0 w-80 h-80 bg-white/5 rounded-full translate-x-40 translate-y-40"></div>
+    <div className="min-h-screen flex flex-col items-center px-6 py-10 relative overflow-hidden" style={{ background: 'var(--s50)' }}>
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.04), transparent 70%)' }} />
+
+      {/* Logo */}
+      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
+        <Link to="/" className="flex items-center gap-3">
+          <motion.div className="w-10 h-10 rounded-[12px] flex items-center justify-center" style={{ background: 'var(--blue-600)' }}
+            whileHover={{ scale: 1.1, rotate: -5 }}><span className="text-white font-black text-lg">S</span></motion.div>
+          <span className="text-[1.25rem] font-extrabold tracking-[-0.03em]" style={{ color: 'var(--navy-800)' }}>
+            Sajha<span style={{ color: 'var(--blue-600)' }}>Doctor</span></span>
+        </Link>
+      </motion.div>
+
+      <motion.div className="w-full max-w-[540px]" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+        <div className="rounded-[24px] p-7 md:p-9" style={{ background: 'white', boxShadow: '0 1px 3px rgba(15,23,42,0.04), 0 12px 40px -8px rgba(15,23,42,0.06)', border: '1px solid var(--s100)' }}>
+
+          <div className="flex items-center gap-2.5 mb-1">
+            <Heart size={20} style={{ color: 'var(--blue-600)' }} />
+            <h1 className="text-[1.4rem] font-extrabold" style={{ color: 'var(--navy-800)', letterSpacing: '-0.03em' }}>Patient Registration</h1>
           </div>
+          <p className="text-[0.85rem] mb-5" style={{ color: 'var(--s500)' }}>Create your account in 3 easy steps</p>
 
-          <div className="relative z-20">
-            {/* Premium Logo */}
-            <div className="flex items-center space-x-4 mb-12">
-              <div className="relative">
-                <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/30">
-                  <span className="text-white font-black text-2xl">H</span>
-                </div>
-                <div className="absolute -top-1 -right-1 w-6 h-6 bg-emerald-400 rounded-full flex items-center justify-center">
-                  <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                </div>
-              </div>
-              <div>
-                <div className="text-2xl font-black">HealthCare<span className="text-emerald-200">Nepal</span></div>
-                <div className="text-emerald-200 text-sm font-medium">Nepal's Premier Virtual Care Platform</div>
-              </div>
-            </div>
+          <AnimatePresence>
+            {errors.general && (
+              <motion.div className="mb-4 p-3 rounded-[12px] text-[0.82rem] font-medium"
+                style={{ background: '#FEF2F2', border: '1px solid #FEE2E2', color: '#DC2626' }}
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>{errors.general}</motion.div>
+            )}
+          </AnimatePresence>
 
-            {/* Content */}
-            <div className="space-y-8">
-              <div>
-                <h2 className="text-4xl lg:text-5xl font-black mb-6 leading-tight">
-                  Your Health Journey Starts Here
-                </h2>
-                <p className="text-emerald-100 text-xl leading-relaxed font-light">
-                  Join thousands of patients accessing quality healthcare across Nepal through our trusted platform.
-                </p>
-              </div>
+          <Steps current={step} />
 
-              {/* Enhanced Stats */}
-              <div className="grid grid-cols-2 gap-6">
-                <div className="bg-white/15 rounded-2xl p-6 backdrop-blur-md border border-white/20">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <Users className="w-6 h-6 text-emerald-200" />
-                    <div className="text-3xl font-black">500+</div>
+          <form onSubmit={submit}>
+            <AnimatePresence mode="wait" custom={dir}>
+              {step === 0 && (
+                <motion.div key="s0" className="space-y-3" custom={dir} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3, ease: [0.16,1,0.3,1] }}>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input icon={User} name="firstName" value={form.firstName} onChange={set} placeholder="First name" label="First Name" required error={errors.firstName} />
+                    <Input icon={User} name="lastName" value={form.lastName} onChange={set} placeholder="Last name" label="Last Name" required error={errors.lastName} />
                   </div>
-                  <div className="text-emerald-200 font-medium">Licensed Doctors</div>
-                </div>
-                <div className="bg-white/15 rounded-2xl p-6 backdrop-blur-md border border-white/20">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <CheckCircle className="w-6 h-6 text-blue-200" />
-                    <div className="text-3xl font-black">50M+</div>
+                  <Input icon={Mail} type="email" name="email" value={form.email} onChange={set} placeholder="Email" label="Email" required error={errors.email} />
+                  <Input icon={Phone} type="tel" name="phoneNumber" value={form.phoneNumber} onChange={set} placeholder="+977 98XXXXXXXX" label="Phone" required error={errors.phoneNumber} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input icon={Calendar} type="date" name="dateOfBirth" value={form.dateOfBirth} onChange={set} label="Date of Birth" />
+                    <Select icon={UserCheck} name="gender" value={form.gender} onChange={set} label="Gender">
+                      <option value="">Select</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
+                    </Select>
                   </div>
-                  <div className="text-blue-200 font-medium">Consultations</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Benefits */}
-          <div className="relative z-20 space-y-4">
-            {benefits.map((benefit, index) => {
-              const IconComponent = benefit.icon;
-              return (
-                <div key={index} className="flex items-center space-x-4 group">
-                  <div className={`w-12 h-12 bg-gradient-to-r ${benefit.gradient} rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg group-hover:scale-110 transition-all duration-300`}>
-                    <IconComponent className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-lg">{benefit.title}</div>
-                    <div className="text-emerald-200">{benefit.desc}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Right Side - Form */}
-        <div className="w-full lg:w-3/5 p-8 lg:p-12 flex flex-col justify-start max-h-screen overflow-y-auto pt-16 lg:pt-20">
-          
-          {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center justify-center space-x-3 mb-8">
-            <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-xl">H</span>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900">HealthCare<span className="text-emerald-600">Nepal</span></div>
-              <div className="text-gray-600 text-sm">Virtual Care Platform</div>
-            </div>
-          </div>
-
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="flex items-center justify-center space-x-3 mb-4">
-              <Heart className="w-10 h-10 text-emerald-600" />
-              <h1 className="text-4xl lg:text-5xl font-black text-gray-900">Patient Registration</h1>
-            </div>
-            <p className="text-gray-600 text-xl font-light">
-              Create your patient account to access quality healthcare
-            </p>
-          </div>
-
-          {/* General Error Message */}
-          {errors.general && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl">
-              <p className="text-red-600 font-medium">{errors.general}</p>
-            </div>
-          )}
-
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            
-            {/* Name Fields */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-bold text-gray-800 mb-3">First Name *</label>
-                <div className="relative">
-                  <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                  <input
-                    type="text"
-                    name="firstName"
-                    value={formData.firstName}
-                    onChange={handleInputChange}
-                    className={`w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white ${
-                      errors.firstName ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-emerald-500 hover:border-gray-300'
-                    }`}
-                    placeholder="Enter your first name"
-                  />
-                </div>
-                {errors.firstName && <p className="text-red-500 text-sm mt-2 font-medium">{errors.firstName}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-800 mb-3">Last Name *</label>
-                <div className="relative">
-                  <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                  <input
-                    type="text"
-                    name="lastName"
-                    value={formData.lastName}
-                    onChange={handleInputChange}
-                    className={`w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white ${
-                      errors.lastName ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-emerald-500 hover:border-gray-300'
-                    }`}
-                    placeholder="Enter your last name"
-                  />
-                </div>
-                {errors.lastName && <p className="text-red-500 text-sm mt-2 font-medium">{errors.lastName}</p>}
-              </div>
-            </div>
-
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-bold text-gray-800 mb-3">Email Address *</label>
-              <div className="relative">
-                <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className={`w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white ${
-                    errors.email ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-emerald-500 hover:border-gray-300'
-                  }`}
-                  placeholder="Enter your email address"
-                />
-              </div>
-              {errors.email && <p className="text-red-500 text-sm mt-2 font-medium">{errors.email}</p>}
-            </div>
-
-            {/* Phone Number */}
-            <div>
-              <label className="block text-sm font-bold text-gray-800 mb-3">Phone Number *</label>
-              <div className="relative">
-                <Phone className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                <input
-                  type="tel"
-                  name="phoneNumber"
-                  value={formData.phoneNumber}
-                  onChange={handleInputChange}
-                  className={`w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white ${
-                    errors.phoneNumber ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-emerald-500 hover:border-gray-300'
-                  }`}
-                  placeholder="+977 98XXXXXXXX"
-                />
-              </div>
-              {errors.phoneNumber && <p className="text-red-500 text-sm mt-2 font-medium">{errors.phoneNumber}</p>}
-            </div>
-
-            {/* Date of Birth and Gender */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-bold text-gray-800 mb-3">Date of Birth</label>
-                <div className="relative">
-                  <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                  <input
-                    type="date"
-                    name="dateOfBirth"
-                    value={formData.dateOfBirth}
-                    onChange={handleInputChange}
-                    className="w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white border-gray-200 focus:border-emerald-500 hover:border-gray-300"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-800 mb-3">Gender</label>
-                <div className="relative">
-                  <UserCheck className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                  <select
-                    name="gender"
-                    value={formData.gender}
-                    onChange={handleInputChange}
-                    className="w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 appearance-none bg-gray-50 focus:bg-white hover:bg-white cursor-pointer border-gray-200 focus:border-emerald-500 hover:border-gray-300"
-                  >
-                    <option value="">Select Gender</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Address Fields */}
-            <div className="space-y-6">
-              <h3 className="text-lg font-bold text-gray-800">Address Information</h3>
-              
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">Province</label>
-                  <div className="relative">
-                    <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                    <select
-                      name="address.province"
-                      value={formData.address.province}
-                      onChange={handleInputChange}
-                      className="w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 appearance-none bg-gray-50 focus:bg-white hover:bg-white cursor-pointer border-gray-200 focus:border-emerald-500 hover:border-gray-300"
-                    >
-                      <option value="">Select Province</option>
-                      {nepaliProvinces.map(province => (
-                        <option key={province} value={province}>{province}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">District</label>
-                  <div className="relative">
-                    <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                    <select
-                      name="address.district"
-                      value={formData.address.district}
-                      onChange={handleInputChange}
-                      className="w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 appearance-none bg-gray-50 focus:bg-white hover:bg-white cursor-pointer border-gray-200 focus:border-emerald-500 hover:border-gray-300"
-                    >
-                      <option value="">Select District</option>
-                      {nepaliDistricts.map(district => (
-                        <option key={district} value={district}>{district}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-800 mb-3">Municipality/VDC</label>
-                <div className="relative">
-                  <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                  <input
-                    type="text"
-                    name="address.municipality"
-                    value={formData.address.municipality}
-                    onChange={handleInputChange}
-                    className="w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white border-gray-200 focus:border-emerald-500 hover:border-gray-300"
-                    placeholder="Enter municipality or VDC"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Emergency Contact */}
-            <div className="space-y-6">
-              <h3 className="text-lg font-bold text-gray-800">Emergency Contact</h3>
-              
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">Contact Name</label>
-                  <div className="relative">
-                    <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                    <input
-                      type="text"
-                      name="emergencyContact.name"
-                      value={formData.emergencyContact.name}
-                      onChange={handleInputChange}
-                      className="w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white border-gray-200 focus:border-emerald-500 hover:border-gray-300"
-                      placeholder="Emergency contact name"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">Relationship</label>
-                  <div className="relative">
-                    <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                    <select
-                      name="emergencyContact.relationship"
-                      value={formData.emergencyContact.relationship}
-                      onChange={handleInputChange}
-                      className="w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 appearance-none bg-gray-50 focus:bg-white hover:bg-white cursor-pointer border-gray-200 focus:border-emerald-500 hover:border-gray-300"
-                    >
-                      <option value="">Select Relationship</option>
-                      <option value="spouse">Spouse</option>
-                      <option value="parent">Parent</option>
-                      <option value="child">Child</option>
-                      <option value="sibling">Sibling</option>
-                      <option value="friend">Friend</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">Emergency Contact Phone</label>
-                  <div className="relative">
-                    <Phone className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                    <input
-                      type="tel"
-                      name="emergencyContact.phoneNumber"
-                      value={formData.emergencyContact.phoneNumber}
-                      onChange={handleInputChange}
-                      className="w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white border-gray-200 focus:border-emerald-500 hover:border-gray-300"
-                      placeholder="+977 98XXXXXXXX"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-gray-800 mb-3">Emergency Contact Email</label>
-                  <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                    <input
-                      type="email"
-                      name="emergencyContact.email"
-                      value={formData.emergencyContact.email}
-                      onChange={handleInputChange}
-                      className="w-full pl-14 pr-4 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white border-gray-200 focus:border-emerald-500 hover:border-gray-300"
-                      placeholder="emergency@email.com"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Password */}
-            <div>
-              <label className="block text-sm font-bold text-gray-800 mb-3">Password *</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  name="password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  className={`w-full pl-14 pr-16 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white ${
-                    errors.password ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-emerald-500 hover:border-gray-300'
-                  }`}
-                  placeholder="Enter your password (min 6 characters)"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-300"
-                >
-                  {showPassword ? <EyeOff className="w-6 h-6" /> : <Eye className="w-6 h-6" />}
-                </button>
-              </div>
-              {errors.password && <p className="text-red-500 text-sm mt-2 font-medium">{errors.password}</p>}
-            </div>
-
-            {/* Confirm Password */}
-            <div>
-              <label className="block text-sm font-bold text-gray-800 mb-3">Confirm Password *</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleInputChange}
-                  className={`w-full pl-14 pr-16 py-5 border-2 rounded-2xl font-medium text-lg transition-all duration-300 focus:outline-none focus:ring-0 bg-gray-50 focus:bg-white hover:bg-white ${
-                    errors.confirmPassword ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-emerald-500 hover:border-gray-300'
-                  }`}
-                  placeholder="Confirm your password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-300"
-                >
-                  {showConfirmPassword ? <EyeOff className="w-6 h-6" /> : <Eye className="w-6 h-6" />}
-                </button>
-              </div>
-              {errors.confirmPassword && <p className="text-red-500 text-sm mt-2 font-medium">{errors.confirmPassword}</p>}
-            </div>
-
-            {/* Terms and Conditions */}
-            <div className="flex items-start space-x-3 p-6 bg-gray-50 rounded-2xl border-2 border-gray-200">
-              <input
-                type="checkbox"
-                id="terms"
-                checked={termsAccepted}
-                onChange={(e) => setTermsAccepted(e.target.checked)}
-                className="mt-1 h-5 w-5 text-emerald-600 border-2 border-gray-300 rounded focus:ring-emerald-500"
-              />
-              <div className="flex-1">
-                <label htmlFor="terms" className="text-sm text-gray-700 font-medium cursor-pointer">
-                  I agree to the{' '}
-                  <a href="#" className="text-emerald-600 hover:text-emerald-700 font-semibold underline">
-                    Terms of Service
-                  </a>{' '}
-                  and{' '}
-                  <a href="#" className="text-emerald-600 hover:text-emerald-700 font-semibold underline">
-                    Privacy Policy
-                  </a>
-                </label>
-                {errors.terms && <p className="text-red-500 text-sm mt-1 font-medium">{errors.terms}</p>}
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-5 px-6 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white"
-            >
-              <span>Create Patient Account</span>
-              {isLoading && (
-                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                </motion.div>
               )}
-            </button>
+              {step === 1 && (
+                <motion.div key="s1" className="space-y-3" custom={dir} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+                  <p className="text-[0.8rem] font-bold" style={{ color: 'var(--navy-800)' }}>Address</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Select icon={MapPin} name="address.province" value={form.address.province} onChange={set} label="Province">
+                      <option value="">Select</option>{provinces.map(p => <option key={p} value={p}>{p}</option>)}
+                    </Select>
+                    <Select icon={MapPin} name="address.district" value={form.address.district} onChange={set} label="District">
+                      <option value="">Select</option>{districts.map(d => <option key={d} value={d}>{d}</option>)}
+                    </Select>
+                  </div>
+                  <Input icon={MapPin} name="address.municipality" value={form.address.municipality} onChange={set} placeholder="Municipality / VDC" label="Municipality" />
+                  <p className="text-[0.8rem] font-bold pt-1" style={{ color: 'var(--navy-800)' }}>Emergency Contact</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input icon={User} name="emergencyContact.name" value={form.emergencyContact.name} onChange={set} placeholder="Name" label="Contact Name" />
+                    <Select icon={User} name="emergencyContact.relationship" value={form.emergencyContact.relationship} onChange={set} label="Relationship">
+                      <option value="">Select</option>{['Spouse','Parent','Child','Sibling','Friend','Other'].map(r => <option key={r} value={r.toLowerCase()}>{r}</option>)}
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input icon={Phone} name="emergencyContact.phoneNumber" value={form.emergencyContact.phoneNumber} onChange={set} placeholder="Phone" label="Phone" />
+                    <Input icon={Mail} name="emergencyContact.email" value={form.emergencyContact.email} onChange={set} placeholder="Email" label="Email" />
+                  </div>
+                </motion.div>
+              )}
+              {step === 2 && (
+                <motion.div key="s2" className="space-y-3" custom={dir} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+                  <div className="relative">
+                    <Input icon={Lock} type={showPwd ? 'text' : 'password'} name="password" value={form.password} onChange={set} placeholder="Min 6 chars, upper+lower+number" label="Password" required error={errors.password} />
+                    <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-9 p-1 rounded-lg hover:bg-gray-100" style={{ color: 'var(--s400)' }}>
+                      {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}</button>
+                  </div>
+                  <div className="relative">
+                    <Input icon={Lock} type={showConfirm ? 'text' : 'password'} name="confirmPassword" value={form.confirmPassword} onChange={set} placeholder="Re-enter" label="Confirm Password" required error={errors.confirmPassword} />
+                    <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-9 p-1 rounded-lg hover:bg-gray-100" style={{ color: 'var(--s400)' }}>
+                      {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}</button>
+                  </div>
+                  <motion.label className="flex items-start gap-3 p-3.5 rounded-[12px] cursor-pointer transition-all hover:border-blue-200"
+                    style={{ background: 'var(--s50)', border: `2px solid ${errors.terms ? '#FCA5A5' : 'var(--s200)'}` }}>
+                    <input type="checkbox" checked={termsOk} onChange={e => setTermsOk(e.target.checked)} className="mt-0.5 w-4 h-4 rounded accent-blue-600" />
+                    <span className="text-[0.8rem]" style={{ color: 'var(--s600)' }}>
+                      I agree to the <a href="#" className="font-bold" style={{ color: 'var(--blue-600)' }}>Terms</a> and <a href="#" className="font-bold" style={{ color: 'var(--blue-600)' }}>Privacy Policy</a>
+                    </span>
+                  </motion.label>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-            {/* Navigation */}
-            <div className="text-center pt-6 space-y-2">
-              <p className="text-gray-600 font-medium">
-                Are you a healthcare provider?{' '}
-                <Link
-                  to="/home/DoctorRegister"
-                  className="text-emerald-600 underline hover:text-emerald-700 hover:no-underline"
-                >
-                  Register as Doctor
-                </Link>
-              </p>
-              <p className="text-gray-600 font-medium">
-                Already have an account?{' '}
-                <Link
-                  to="/home/Login"
-                  className="text-emerald-600 hover:text-emerald-700 font-bold underline transition-colors duration-300"
-                >
-                  Sign In
-                </Link>
-              </p>
+            <div className="flex items-center justify-between mt-6 gap-3">
+              {step > 0 ? (
+                <motion.button type="button" onClick={prev} className="btn-secondary" style={{ padding: '11px 22px', fontSize: '0.88rem' }}
+                  whileHover={{ scale: 1.03, x: -3 }} whileTap={{ scale: 0.97 }}><ArrowLeft size={16} /> Back</motion.button>
+              ) : <div />}
+              {step < 2 ? (
+                <motion.button type="button" onClick={next} className="btn-primary" style={{ padding: '11px 26px', fontSize: '0.88rem' }}
+                  whileHover={{ scale: 1.03, boxShadow: '0 8px 24px -6px rgba(37,99,235,0.3)' }} whileTap={{ scale: 0.97 }}>Next <ArrowRight size={16} /></motion.button>
+              ) : (
+                <motion.button type="submit" disabled={loading} className="btn-primary" style={{ padding: '11px 26px', fontSize: '0.88rem', opacity: loading ? 0.7 : 1 }}
+                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                  {loading ? <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <>Create Account <ArrowRight size={16} /></>}
+                </motion.button>
+              )}
             </div>
           </form>
-
         </div>
-      </div>
+
+        <div className="text-center mt-5 space-y-1.5">
+          <p className="text-[0.85rem]" style={{ color: 'var(--s500)' }}>Are you a doctor? <Link to="/home/DoctorRegister" className="font-bold hover:text-blue-800 transition-colors" style={{ color: 'var(--blue-600)' }}>Register here</Link></p>
+          <p className="text-[0.85rem]" style={{ color: 'var(--s500)' }}>Already have an account? <Link to="/home/Login" className="font-bold hover:text-blue-800 transition-colors" style={{ color: 'var(--blue-600)' }}>Sign In</Link></p>
+          <div className="flex items-center justify-center gap-2 text-[0.75rem] pt-1" style={{ color: 'var(--s400)' }}><Shield size={13} /><span>256-bit SSL · HIPAA aligned</span></div>
+        </div>
+      </motion.div>
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   Settings as SettingsIcon, 
   User, 
@@ -27,6 +27,8 @@ import {
   Home,
   Stethoscope
 } from 'lucide-react';
+import { useAuth } from '../Auth/AuthContext';
+import { updateUserProfile } from '../../utils/firestoreAPI';
 
 // Sidebar Component
 const Sidebar = ({ isOpen, toggleSidebar }) => {
@@ -99,7 +101,6 @@ const Header = ({ toggleSidebar }) => {
             alt="User Avatar"
             className="w-8 h-8 rounded-full object-cover shadow-sm"
           />
-          <span className="font-medium text-gray-700">Ramesh</span>
         </div>
       </div>
     </header>
@@ -174,6 +175,9 @@ const ToggleSwitch = ({ enabled, onChange, label, description }) => (
 const Settings = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
+  
+  const { user, profile: authProfile, logout } = useAuth();
+  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('profile');
   const [showPassword, setShowPassword] = useState(false);
@@ -191,16 +195,31 @@ const Settings = () => {
     marketing: false
   });
 
-  const [profile, setProfile] = useState({
-    firstName: 'Ramesh',
-    lastName: 'Thapa',
-    email: 'rohitpoudel020@gmail.com',
-    phone: '+977 98xxxxxxxx',
-    dateOfBirth: '1990-01-15',
+  const [localProfile, setLocalProfile] = React.useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    dateOfBirth: '',
     gender: 'male',
     bloodGroup: 'O+',
-    emergencyContact: '+977 98xxxxxxxx'
+    emergencyContact: ''
   });
+
+  React.useEffect(() => {
+    if (authProfile) {
+      setLocalProfile({
+        firstName: authProfile.firstName || '',
+        lastName: authProfile.lastName || '',
+        email: authProfile.email || user?.email || '',
+        phone: authProfile.phoneNumber || authProfile.phone || '',
+        dateOfBirth: authProfile.dateOfBirth || '',
+        gender: authProfile.gender || 'male',
+        bloodGroup: authProfile.bloodGroup || 'O+',
+        emergencyContact: authProfile.emergencyContact || ''
+      });
+    }
+  }, [authProfile, user]);
 
   const tabs = [
     { key: 'profile', label: 'Profile', icon: User, desc: 'Personal information' },
@@ -211,13 +230,27 @@ const Settings = () => {
     { key: 'support', label: 'Help & Support', icon: HelpCircle, desc: 'Get assistance' }
   ];
 
-  const handleProfileSave = () => {
-    setEditingProfile(false);
-    console.log('Profile saved:', profile);
+  const handleProfileSave = async () => {
+    try {
+      setEditingProfile(false);
+      // Ensure we update firestore based on correctly typed id
+      if (user?.uid) {
+        await updatePatientProfile(user.uid, localProfile);
+        console.log('Profile saved to Firestore successfully');
+      }
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+    }
   };
 
-  const handleLogout = () => {
-    console.log('Logging out...');
+  const handleLogout = async () => {
+    try {
+      console.log('Logging out...');
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Failed to log out', error);
+    }
   };
 
   const renderDesktopNavigation = () => (
@@ -281,8 +314,8 @@ const Settings = () => {
                     </button>
                   </div>
                   <div className="text-center md:text-left">
-                    <h4 className="text-lg font-semibold text-gray-900">{profile.firstName} {profile.lastName}</h4>
-                    <p className="text-gray-600 text-sm">Patient ID: #PAT-2024-001</p>
+                    <h4 className="text-lg font-semibold text-gray-900">{localProfile.firstName} {localProfile.lastName}</h4>
+                    <p className="text-gray-600 text-sm">Patient ID: {user?.uid ? user.uid.substring(0, 8) : '#PAT-2024-001'}</p>
                     <button className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium">
                       Change Photo
                     </button>
@@ -296,8 +329,8 @@ const Settings = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
                       <input
                         type="text"
-                        value={profile.firstName}
-                        onChange={(e) => setProfile({...profile, firstName: e.target.value})}
+                        value={localProfile.firstName}
+                        onChange={(e) => setLocalProfile({...localProfile, firstName: e.target.value})}
                         disabled={!editingProfile}
                         className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 text-sm md:text-base"
                       />
@@ -307,8 +340,8 @@ const Settings = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
                       <input
                         type="text"
-                        value={profile.lastName}
-                        onChange={(e) => setProfile({...profile, lastName: e.target.value})}
+                        value={localProfile.lastName}
+                        onChange={(e) => setLocalProfile({...localProfile, lastName: e.target.value})}
                         disabled={!editingProfile}
                         className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 text-sm md:text-base"
                       />
@@ -320,9 +353,9 @@ const Settings = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
                       <input
                         type="email"
-                        value={profile.email}
-                        onChange={(e) => setProfile({...profile, email: e.target.value})}
-                        disabled={!editingProfile}
+                        value={localProfile.email}
+                        onChange={(e) => setLocalProfile({...localProfile, email: e.target.value})}
+                        disabled={true} // Usually email shouldn't be edited easily
                         className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 text-sm md:text-base"
                       />
                     </div>
@@ -331,8 +364,8 @@ const Settings = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
                       <input
                         type="tel"
-                        value={profile.phone}
-                        onChange={(e) => setProfile({...profile, phone: e.target.value})}
+                        value={localProfile.phone}
+                        onChange={(e) => setLocalProfile({...localProfile, phone: e.target.value})}
                         disabled={!editingProfile}
                         className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 text-sm md:text-base"
                       />
@@ -344,8 +377,8 @@ const Settings = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth</label>
                       <input
                         type="date"
-                        value={profile.dateOfBirth}
-                        onChange={(e) => setProfile({...profile, dateOfBirth: e.target.value})}
+                        value={localProfile.dateOfBirth}
+                        onChange={(e) => setLocalProfile({...localProfile, dateOfBirth: e.target.value})}
                         disabled={!editingProfile}
                         className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 text-sm md:text-base"
                       />
@@ -354,8 +387,8 @@ const Settings = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
                       <select
-                        value={profile.gender}
-                        onChange={(e) => setProfile({...profile, gender: e.target.value})}
+                        value={localProfile.gender}
+                        onChange={(e) => setLocalProfile({...localProfile, gender: e.target.value})}
                         disabled={!editingProfile}
                         className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 text-sm md:text-base"
                       >
@@ -370,8 +403,8 @@ const Settings = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Blood Group</label>
                       <select
-                        value={profile.bloodGroup}
-                        onChange={(e) => setProfile({...profile, bloodGroup: e.target.value})}
+                        value={localProfile.bloodGroup}
+                        onChange={(e) => setLocalProfile({...localProfile, bloodGroup: e.target.value})}
                         disabled={!editingProfile}
                         className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 text-sm md:text-base"
                       >
@@ -390,8 +423,8 @@ const Settings = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-2">Emergency Contact</label>
                       <input
                         type="tel"
-                        value={profile.emergencyContact}
-                        onChange={(e) => setProfile({...profile, emergencyContact: e.target.value})}
+                        value={localProfile.emergencyContact}
+                        onChange={(e) => setLocalProfile({...localProfile, emergencyContact: e.target.value})}
                         disabled={!editingProfile}
                         className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 text-sm md:text-base"
                       />
