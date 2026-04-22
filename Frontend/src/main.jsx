@@ -20,20 +20,20 @@ import NotFound from './pages/NotFound.jsx'
 import DashboardShell from './pages/DashboardShell.jsx'
 
 // Patient Pages
-import PatientHome from './pages/patient/PatientHome.jsx'
-import PatientAppointments from './pages/patient/PatientAppointments.jsx'
-import FindDoctors from './pages/patient/FindDoctors.jsx'
-import Prescriptions from './pages/patient/Prescriptions.jsx'
-import HealthRecords from './pages/patient/HealthRecords.jsx'
-import PatientSettings from './pages/patient/PatientSettings.jsx'
+import PatientHome from './pages/Patient/PatientHome.jsx'
+import PatientAppointments from './pages/Patient/PatientAppointments.jsx'
+import FindDoctors from './pages/Patient/FindDoctors.jsx'
+import Prescriptions from './pages/Patient/Prescriptions.jsx'
+import HealthRecords from './pages/Patient/Healthrecords.jsx'
+import PatientSettings from './pages/Patient/PatientSettings.jsx'
 
 // Doctor Pages
-import DoctorHome from './pages/doctor/DoctorHome.jsx'
-import DoctorAppointments from './pages/doctor/DoctorAppointments.jsx'
-import DoctorPatients from './pages/doctor/DoctorPatients.jsx'
-import DoctorPrescriptions from './pages/doctor/DoctorPrescriptions.jsx'
-import Analytics from './pages/doctor/Analytics.jsx'
-import DoctorSettings from './pages/doctor/DoctorSettings.jsx'
+import DoctorHome from './pages/Doctor/DoctorHome.jsx'
+import DoctorAppointments from './pages/Doctor/DoctorAppointments.jsx'
+import DoctorPatients from './pages/Doctor/DoctorPatients.jsx'
+import DoctorPrescriptions from './pages/Doctor/DoctorPrescriptions.jsx'
+import Analytics from './pages/Doctor/Analytics.jsx'
+import DoctorSettings from './pages/Doctor/DoctorSettings.jsx'
 
 const router = createBrowserRouter(
     createRoutesFromElements(
